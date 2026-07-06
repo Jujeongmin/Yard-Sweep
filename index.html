@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#56b9ef" />
+    <title>Yard Sweep</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+      <header class="hud">
+        <div class="brand">YARD <span>SWEEP</span></div>
+        <div class="stat coin"><span class="coin-dot">●</span><strong id="coins">0</strong></div>
+        <div class="area">
+          <small>현재 지역</small><strong>앞 마당</strong>
+          <div class="progress"><i id="progress-bar"></i></div>
+          <span id="progress-text">0%</span>
+        </div>
+        <div class="inventory" aria-label="장비 인벤토리">
+          <button class="slot active" data-slot="1"><kbd>1</kbd><img src="/assets/Broom-2.png" alt="" /><small>기본 빗자루</small></button>
+          <button class="slot locked" data-slot="2"><kbd>2</kbd><img src="/assets/Broom-1.png" alt="" /><small>큰 빗자루</small></button>
+          <button class="slot locked" data-slot="3"><kbd>3</kbd><img src="/assets/Vacuum.png" alt="" /><small>진공 청소기</small></button>
+          <button class="slot locked" data-slot="4"><kbd>4</kbd><img src="/assets/Sickle-1.png" alt="" /><small>구리 낫</small></button>
+          <button class="slot locked" data-slot="5"><kbd>5</kbd><img src="/assets/Sickle-0.png" alt="" /><small>금속 낫</small></button>
+          <button class="slot locked" data-slot="6"><kbd>6</kbd><span class="slot-glyph">⛏</span><small>곡괭이</small></button>
+        </div>
+        <button class="round-button" id="shop-button" aria-label="상점">🛒</button>
+        <button class="round-button" id="fullscreen-button" aria-label="전체화면">⛶</button>
+        <button class="round-button" id="settings" aria-label="설정">⚙</button>
+      </header>
+
+      <div class="cleaning-radius"><span></span></div>
+      <div id="clean-meter" aria-hidden="true"><i></i><strong>청소 중</strong></div>
+      <div id="feedback" class="feedback">+1 코인</div>
+      <div id="notice" class="notice"></div>
+      <div id="tool-hint" class="tool-hint">빗자루로 낙엽과 캔을 청소하세요</div>
+      <div class="controls"><b>WASD</b> 이동 · <b>Space</b> 점프 · <b>마우스</b> 시점 · <b>좌클릭</b> 청소</div>
+      <button id="start" class="start-card">
+        <span class="mini-logo">YARD SWEEP</span>
+        <strong>앞 마당 청소 시작!</strong>
+        <small>클릭하여 마우스를 연결하세요</small>
+      </button>
+      <div id="mobile-controls">
+        <div id="joystick"><i></i></div>
+        <button id="jump-button"><span>↑</span><small>점프</small></button>
+        <button id="clean-button"><span>🧹</span><small>길게 눌러 청소</small></button>
+      </div>
+      <section id="shop" class="shop" aria-label="상점">
+        <div class="shop-panel">
+          <header><div><small>YARD SUPPLY</small><h2>마당 상점</h2></div><div class="shop-balance"><span>●</span> <b id="shop-coins">0</b></div><button id="shop-close" aria-label="상점 닫기">×</button></header>
+          <div class="shop-tabs"><button class="selected" data-shop-tab="tools">장비</button><button data-shop-tab="upgrades">플레이어 강화</button></div>
+          <div class="shop-content selected" data-shop-content="tools">
+            <article><img src="/assets/Broom-1.png" alt=""><div><h3>더 큰 빗자루</h3><p>넓은 범위 · 이동하며 청소</p></div><button class="buy-tool" data-tool="wideBroom">● 40</button></article>
+            <article><img src="/assets/Vacuum.png" alt=""><div><h3>진공 청소기</h3><p>청소 속도 2.1배</p></div><button class="buy-tool" data-tool="vacuum">● 100</button></article>
+            <article><img src="/assets/Sickle-1.png" alt=""><div><h3>구리 낫</h3><p>잔디 전용 장비</p></div><button class="buy-tool" data-tool="copperSickle">● 180</button></article>
+            <article><img src="/assets/Sickle-0.png" alt=""><div><h3>금속 낫</h3><p>더 넓고 빠른 잔디 장비</p></div><button class="buy-tool" data-tool="metalSickle">● 260</button></article>
+            <article><span class="shop-glyph">⛏</span><div><h3>곡괭이</h3><p>돌 전용 장비</p></div><button class="buy-tool" data-tool="pickaxe">● 280</button></article>
+          </div>
+          <div class="shop-content" data-shop-content="upgrades">
+            <article><span class="shop-glyph">⚡</span><div><h3>청소 속도 <em id="level-cleanSpeed">Lv.0</em></h3><p>모든 장비 청소 시간 감소</p></div><button class="buy-upgrade" data-upgrade="cleanSpeed">● 30</button></article>
+            <article><span class="shop-glyph">👟</span><div><h3>이동 속도 <em id="level-moveSpeed">Lv.0</em></h3><p>이동 속도 10% 증가</p></div><button class="buy-upgrade" data-upgrade="moveSpeed">● 30</button></article>
+            <article><span class="shop-glyph">🪙</span><div><h3>코인 획득량 <em id="level-coinBonus">Lv.0</em></h3><p>코인 보상 20% 증가</p></div><button class="buy-upgrade" data-upgrade="coinBonus">● 40</button></article>
+            <article><span class="shop-glyph">◎</span><div><h3>청소 범위 <em id="level-radius">Lv.0</em></h3><p>청소 범위 8% 증가</p></div><button class="buy-upgrade" data-upgrade="radius">● 40</button></article>
+          </div>
+          <footer>PC: <b>Tab</b>으로 열기/닫기 · 구매 내용은 자동 저장됩니다</footer>
+        </div>
+      </section>
+      <aside id="rotate-screen" aria-label="가로 화면 안내">
+        <div class="rotate-phone">▯<span>↻</span></div>
+        <strong>기기를 가로로 돌려주세요</strong>
+        <p>Yard Sweep은 가로 화면에서 가장 편하게 플레이할 수 있어요.</p>
+        <button id="rotate-fullscreen">⛶ 전체화면으로 시작</button>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
