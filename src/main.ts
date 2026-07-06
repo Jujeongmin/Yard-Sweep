@@ -19,7 +19,7 @@ scene.background = new THREE.Color(0x66c8f2);
 scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
 
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 1.68, 8);
+camera.position.set(0, 1.85, 8);
 scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xc6efff, 0x5f7b32, 2.2));
@@ -87,6 +87,22 @@ tree(13, -10, 1.15); tree(17, 3, 0.9); tree(-17, 4, 1);
 
 const cleanables: Cleanable[] = [];
 const leafColors = [0xe9682c, 0xf6b82f, 0xb84b27, 0xef8d22];
+const houseBounds = { minX: -16.3, maxX: -3.7, minZ: -12.8, maxZ: -7.15 };
+
+function isInsideHouse(x: number, z: number, padding = 0) {
+  return x > houseBounds.minX - padding && x < houseBounds.maxX + padding
+    && z > houseBounds.minZ - padding && z < houseBounds.maxZ + padding;
+}
+
+function randomOpenPosition(): [number, number] {
+  let x = 0;
+  let z = 0;
+  do {
+    x = (Math.random() - 0.5) * 36;
+    z = (Math.random() - 0.5) * 30;
+  } while (isInsideHouse(x, z, 0.45));
+  return [x, z];
+}
 
 function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
   const group = new THREE.Group() as Cleanable;
@@ -166,11 +182,11 @@ const region = regions[currentRegionId];
 const counts = region.objectCounts;
 
 for (let i = 0; i < counts.leaf; i++) {
-  createLeaf((Math.random() - 0.5) * 36, (Math.random() - 0.5) * 30);
+  createLeaf(...randomOpenPosition());
 }
 for (let i = 0; i < counts.can; i++) {
   if (i === 0) createCan(0, 3.1);
-  else createCan((Math.random() - 0.5) * 36, (Math.random() - 0.5) * 30);
+  else createCan(...randomOpenPosition());
 }
 for (let i = 0; i < counts.grass; i++) {
   createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
@@ -203,9 +219,43 @@ for (let i = 0; i < 9; i++) {
   bristle.rotation.z = (i - 4) * 0.025;
   fallbackTool.add(bristle);
 }
+// Tool models are held along the camera's depth axis: handle toward the player,
+// working head toward the center of the screen.
+fallbackTool.rotation.set(Math.PI / 2, 0, -0.32);
+fallbackTool.position.y = -0.18;
+
+const pickaxeTool = new THREE.Group();
+const pickaxeHandle = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.045, 0.055, 2.35, 10),
+  new THREE.MeshStandardMaterial({ color: 0x8b542e, roughness: 0.85 }),
+);
+pickaxeHandle.rotation.z = -0.18;
+pickaxeTool.add(pickaxeHandle);
+const pickaxeHead = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.035, 0.12, 1.15, 8),
+  new THREE.MeshStandardMaterial({ color: 0x77838a, metalness: 0.65, roughness: 0.35 }),
+);
+pickaxeHead.rotation.z = Math.PI / 2;
+pickaxeHead.position.set(-0.2, -1.05, 0);
+pickaxeTool.add(pickaxeHead);
+const pickaxePoint = new THREE.Mesh(
+  new THREE.ConeGeometry(0.12, 0.48, 8),
+  new THREE.MeshStandardMaterial({ color: 0x657177, metalness: 0.7, roughness: 0.3 }),
+);
+pickaxePoint.rotation.z = -Math.PI / 2;
+pickaxePoint.position.set(-0.98, -1.05, 0);
+pickaxeTool.add(pickaxePoint);
+pickaxeTool.rotation.set(Math.PI / 2, 0, -0.32);
+pickaxeTool.position.z = -0.75;
+
+function fallbackFor(toolId: ToolId) {
+  return toolId === 'pickaxe' ? pickaxeTool : fallbackTool;
+}
 
 const toolAnchor = new THREE.Group();
-toolAnchor.position.set(0.75, -0.25, -1.25);
+const toolRestX = 0.75;
+const toolRestY = 0.25;
+toolAnchor.position.set(toolRestX, toolRestY, -1.25);
 toolAnchor.rotation.set(-0.1, 0.1, -0.12);
 toolAnchor.add(fallbackTool);
 camera.add(toolAnchor);
@@ -217,7 +267,7 @@ function showToolModel(toolId: ToolId) {
   const definition = tools[toolId];
   if (!definition.model) {
     toolAnchor.clear();
-    toolAnchor.add(fallbackTool);
+    toolAnchor.add(fallbackFor(toolId));
     return;
   }
   loader.load(definition.model, (gltf) => {
@@ -229,20 +279,27 @@ function showToolModel(toolId: ToolId) {
     const scale = 1.8 / Math.max(size.x, size.y, size.z, 0.001);
     model.scale.setScalar(scale);
     model.position.copy(center.multiplyScalar(-scale));
-    model.rotation.set(0, 0, -0.32);
+    model.position.y += 0.3;
+    if (toolId === 'vacuum') model.position.y += 0.2;
+    model.position.z -= 1.1;
+    const handleNeedsFlip = toolId === 'vacuum' || toolId === 'copperSickle'
+      || toolId === 'metalSickle' || toolId === 'pickaxe';
+    const screenRotation = -0.32;
+    if (toolId === 'vacuum') model.rotation.order = 'ZXY';
+    model.rotation.set(handleNeedsFlip ? -Math.PI / 2 : Math.PI / 2, 0, screenRotation);
     model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = true; });
     toolAnchor.clear();
     toolAnchor.add(model);
   }, undefined, () => {
     if (request !== modelRequest) return;
     toolAnchor.clear();
-    toolAnchor.add(fallbackTool);
+    toolAnchor.add(fallbackFor(toolId));
   });
 }
 
 let yaw = 0;
 let pitch = -0.12;
-const standingHeight = 1.68;
+const standingHeight = 1.85;
 let verticalVelocity = 0;
 let grounded = true;
 type UpgradeId = 'cleanSpeed' | 'moveSpeed' | 'coinBonus' | 'radius';
@@ -262,11 +319,13 @@ const saveData = loadSave();
 let coins = saveData.coins;
 let cleaned = 0;
 let isCleaning = false;
+let cleaningHeld = false;
 let shopOpen = false;
 let gameStarted = false;
 let currentToolId: ToolId = 'basicBroom';
 const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
-unlockedTools.add('basicBroom');
+// Prototype testing: keep every tool selectable regardless of saved purchases.
+toolOrder.forEach((toolId) => unlockedTools.add(toolId));
 const upgrades = saveData.upgrades;
 const keys = new Set<string>();
 const clock = new THREE.Clock();
@@ -389,26 +448,12 @@ function objectsInRadius() {
 }
 
 function startCleaning() {
-  if (isCleaning || shopOpen) return;
-  const nearby = objectsInRadius();
-  if (nearby.length === 0) {
-    showNotice('청소 범위 안에 오브젝트가 없습니다');
-    return;
-  }
-  const tool = tools[currentToolId];
-  if (!nearby.some((object) => tool.validTargets.includes(object.userData.kind))) {
-    const targetName = objects[nearby[0].userData.kind].label;
-    showNotice(`${tool.name}(으)로 ${targetName}을 청소할 수 없습니다`);
-    radiusEl.classList.add('blocked');
-    window.setTimeout(() => radiusEl.classList.remove('blocked'), 400);
-    return;
-  }
-  isCleaning = true;
-  radiusEl.classList.add('cleaning');
-  meter.classList.add('active');
+  if (shopOpen) return;
+  cleaningHeld = true;
 }
 
 function stopCleaning() {
+  cleaningHeld = false;
   isCleaning = false;
   radiusEl.classList.remove('cleaning');
   meter.classList.remove('active');
@@ -443,13 +488,19 @@ function removeObject(object: Cleanable) {
 }
 
 function updateCleaning(delta: number) {
-  if (!isCleaning) return;
+  if (!cleaningHeld) return;
   const tool = tools[currentToolId];
   const valid = objectsInRadius().filter((object) => tool.validTargets.includes(object.userData.kind));
   if (valid.length === 0) {
-    stopCleaning();
+    isCleaning = false;
+    radiusEl.classList.remove('cleaning');
+    meter.classList.remove('active');
+    meterFill.style.width = '0%';
     return;
   }
+  isCleaning = true;
+  radiusEl.classList.add('cleaning');
+  meter.classList.add('active');
   let displayedProgress = 0;
   let displayedLabel = '';
   for (const object of valid) {
@@ -650,12 +701,18 @@ function animate() {
     0,
     Number(keys.has('KeyS')) - Number(keys.has('KeyW')) + joystickY,
   );
-  if (!movementBlocked && movement.lengthSq() > 0) {
+  const isMoving = !movementBlocked && movement.lengthSq() > 0;
+  if (isMoving) {
     movement.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    const previousX = camera.position.x;
+    const previousZ = camera.position.z;
     camera.position.addScaledVector(movement, 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta);
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -20, 20);
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -16, 16);
-    toolAnchor.position.y = -0.25 + Math.sin(performance.now() * 0.012) * 0.025;
+    if (isInsideHouse(camera.position.x, camera.position.z, 0.35)) {
+      camera.position.x = previousX;
+      camera.position.z = previousZ;
+    }
   }
   if (!grounded) {
     verticalVelocity -= 13.5 * delta;
@@ -666,7 +723,10 @@ function animate() {
       grounded = true;
     }
   }
-  if (isCleaning) toolAnchor.rotation.x = Math.sin(performance.now() * 0.045) * 0.28 - 0.1;
+  const walkBob = isMoving ? Math.sin(performance.now() * 0.012) * 0.025 : 0;
+  toolAnchor.position.x = toolRestX;
+  toolAnchor.position.y = THREE.MathUtils.lerp(toolAnchor.position.y, toolRestY + walkBob, 0.18);
+  if (isCleaning) toolAnchor.rotation.x = Math.sin(performance.now() * 0.045) * 0.045 - 0.02;
   else toolAnchor.rotation.x = THREE.MathUtils.lerp(toolAnchor.rotation.x, -0.1, 0.15);
   renderer.render(scene, camera);
 }

@@ -22,9 +22,9 @@ export const tools: Record<ToolId, ToolDefinition> = {
   basicBroom: { id: 'basicBroom', slot: 1, name: '기본 빗자루', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can'], model: '/assets/Broom_2.glb' },
   wideBroom: { id: 'wideBroom', slot: 2, name: '더 큰 빗자루', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can'] },
   vacuum: { id: 'vacuum', slot: 3, name: '진공 청소기', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can'], model: '/assets/vacuum_cleaner.glb' },
-  copperSickle: { id: 'copperSickle', slot: 4, name: '구리 낫', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass'], model: '/assets/Sickle_1.glb' },
-  metalSickle: { id: 'metalSickle', slot: 5, name: '금속 낫', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass'], model: '/assets/Sickle_0.glb' },
-  pickaxe: { id: 'pickaxe', slot: 6, name: '곡괭이', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone'] },
+  copperSickle: { id: 'copperSickle', slot: 4, name: '구리 낫', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass'], model: '/assets/Sickle_0.glb' },
+  metalSickle: { id: 'metalSickle', slot: 5, name: '금속 낫', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass'], model: '/assets/Sickle_1.glb' },
+  pickaxe: { id: 'pickaxe', slot: 6, name: '곡괭이', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone'], model: '/assets/Pick.glb' },
 };
 
 export const objects: Record<ObjectKind, ObjectDefinition> = {
