@@ -480,7 +480,22 @@ function showToolModel(toolId: ToolId) {
     model.position.y += offset.y;
     model.position.z += offset.z;
     model.rotation.set(Math.PI / 2, offset.yaw ?? 0, offset.roll);
-    model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = true; });
+    model.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.castShadow = true;
+      if (toolId !== 'vacuum') return;
+      const tintMaterial = (material: THREE.Material) => {
+        const tinted = material.clone();
+        if (tinted instanceof THREE.MeshStandardMaterial) {
+          tinted.color.multiply(new THREE.Color(0xff3030));
+          tinted.needsUpdate = true;
+        }
+        return tinted;
+      };
+      child.material = Array.isArray(child.material)
+        ? child.material.map(tintMaterial)
+        : tintMaterial(child.material);
+    });
     toolAnchor.clear();
     toolAnchor.add(model);
   }, undefined, () => {
@@ -575,7 +590,7 @@ const ray = new THREE.Ray();
 const toolUi: Record<ToolId, { size: number; symbol: string }> = {
   basicBroom: { size: 122, symbol: '🧹 기본 빗자루' },
   wideBroom: { size: 176, symbol: '🧹 큰 빗자루' },
-  vacuum: { size: 154, symbol: '◉ 진공 흡입' },
+  vacuum: { size: 154, symbol: '◉ 송풍기' },
   copperSickle: { size: 142, symbol: '☾ 구리 낫' },
   metalSickle: { size: 178, symbol: '☾ 금속 낫' },
   pickaxe: { size: 112, symbol: '⛏ 곡괭이' },

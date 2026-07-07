@@ -22,7 +22,7 @@ export interface ObjectDefinition {
 export const tools: Record<ToolId, ToolDefinition> = {
   basicBroom: { id: 'basicBroom', slot: 1, name: '기본 빗자루', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
   wideBroom: { id: 'wideBroom', slot: 2, name: '더 큰 빗자루', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
-  vacuum: { id: 'vacuum', slot: 3, name: '진공 청소기', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'], model: '/assets/Vacuum.glb' },
+  vacuum: { id: 'vacuum', slot: 3, name: '송풍기', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'], model: '/assets/Vacuum.glb' },
   copperSickle: { id: 'copperSickle', slot: 4, name: '구리 낫', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
   metalSickle: { id: 'metalSickle', slot: 5, name: '금속 낫', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
   pickaxe: { id: 'pickaxe', slot: 6, name: '곡괭이', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest'] },
