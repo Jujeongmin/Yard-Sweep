@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { objects, regions, toolOrder, tools, type ObjectKind, type RegionId, type ToolId } from './gameData';
+import {
+  achievements,
+  missionPool,
+  objects,
+  regionCompletionRewards,
+  regions,
+  toolOrder,
+  tools,
+  type AchievementId,
+  type MissionId,
+  type ObjectKind,
+  type RegionId,
+  type ToolId,
+} from './gameData';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -239,26 +252,36 @@ function createGoldStone(x: number, z: number) {
 
 let currentRegionId: RegionId = 1;
 let total = 0;
+type RegionObjectCounts = Record<ObjectKind, number>;
+interface RegionProgressState { remaining: Partial<RegionObjectCounts>; total: number }
 
-function populateRegion(regionId: RegionId) {
+function freshRegionCounts(regionId: RegionId): RegionObjectCounts {
+  const counts = { ...regions[regionId].objectCounts };
+  const rareCount = () => 1 + (Math.random() < 0.5 ? 0 : 1);
+  counts.goldCan = rareCount();
+  counts.goldChest = rareCount();
+  counts.gemChest = rareCount();
+  counts.goldStone = regionId === 3 ? rareCount() : 0;
+  return counts;
+}
+
+function populateRegion(regionId: RegionId, state: RegionProgressState) {
   cleanables.forEach((object) => scene.remove(object));
   cleanables.length = 0;
-  const counts = regions[regionId].objectCounts;
-  for (let i = 0; i < counts.leaf; i++) createLeaf(...randomOpenPosition());
-  for (let i = 0; i < counts.can; i++) {
+  const counts = state.remaining;
+  for (let i = 0; i < (counts.leaf ?? 0); i++) createLeaf(...randomOpenPosition());
+  for (let i = 0; i < (counts.can ?? 0); i++) {
     if (i === 0) createCan(0, 3.1);
     else createCan(...randomOpenPosition());
   }
-  for (let i = 0; i < counts.grass; i++) createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
-  for (let i = 0; i < counts.stone; i++) createStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
-  const rareCount = () => 1 + (Math.random() < 0.5 ? 0 : 1);
-  for (let i = 0; i < rareCount(); i++) createGoldCan(...randomOpenPosition());
-  for (let i = 0; i < rareCount(); i++) createChest('goldChest', ...randomOpenPosition());
-  for (let i = 0; i < rareCount(); i++) createChest('gemChest', ...randomOpenPosition());
-  if (regionId === 3) {
-    for (let i = 0; i < rareCount(); i++) createGoldStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
-  }
-  total = cleanables.length;
+  for (let i = 0; i < (counts.grass ?? 0); i++) createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
+  for (let i = 0; i < (counts.stone ?? 0); i++) createStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
+  for (let i = 0; i < (counts.goldCan ?? 0); i++) createGoldCan(...randomOpenPosition());
+  for (let i = 0; i < (counts.goldChest ?? 0); i++) createChest('goldChest', ...randomOpenPosition());
+  for (let i = 0; i < (counts.gemChest ?? 0); i++) createChest('gemChest', ...randomOpenPosition());
+  for (let i = 0; i < (counts.goldStone ?? 0); i++) createGoldStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
+  total = state.total;
+  cleaned = Math.max(0, total - cleanables.length);
 }
 
 const fallbackTool = new THREE.Group();
@@ -289,32 +312,133 @@ for (let i = 0; i < 9; i++) {
 fallbackTool.rotation.set(Math.PI / 2, 0, -0.32);
 fallbackTool.position.y = -0.18;
 
+const basicBroomTool = new THREE.Group();
+const basicBroomHandle = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.03, 0.038, 1.65, 8),
+  new THREE.MeshStandardMaterial({ color: 0x9c6a3d, roughness: 0.9 }),
+);
+basicBroomHandle.rotation.z = -0.32;
+basicBroomHandle.position.set(0.2, -0.2, 0);
+basicBroomTool.add(basicBroomHandle);
+const basicBroomHead = new THREE.Mesh(
+  new THREE.BoxGeometry(0.52, 0.12, 0.18),
+  new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.9 }),
+);
+basicBroomHead.position.set(-0.08, -0.92, 0);
+basicBroomTool.add(basicBroomHead);
+for (let i = 0; i < 7; i++) {
+  const bristle = new THREE.Mesh(
+    new THREE.BoxGeometry(0.045, 0.26, 0.14),
+    new THREE.MeshStandardMaterial({ color: 0xd8b869, roughness: 0.95 }),
+  );
+  bristle.position.set(-0.26 + i * 0.078, -1.1, 0);
+  bristle.rotation.z = (i - 3) * 0.03;
+  basicBroomTool.add(bristle);
+}
+basicBroomTool.rotation.set(Math.PI / 2, 0, -0.32);
+basicBroomTool.position.y = -0.18;
+
+// Builds a mesh stretching from `start` to `end` so segments always connect with no gaps,
+// instead of relying on hand-tuned position/rotation offsets per part.
+function boxBetween(start: THREE.Vector3, end: THREE.Vector3, width: number, depth: number, material: THREE.Material) {
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, length, depth), material);
+  mesh.position.copy(start).addScaledVector(direction, 0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  return mesh;
+}
+function cylinderBetween(start: THREE.Vector3, end: THREE.Vector3, radiusStart: number, radiusEnd: number, material: THREE.Material) {
+  const direction = new THREE.Vector3().subVectors(end, start);
+  const length = direction.length();
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusStart, radiusEnd, length, 7), material);
+  mesh.position.copy(start).addScaledVector(direction, 0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.clone().normalize());
+  return mesh;
+}
+
+// Classic pickaxe silhouette: straight wooden shaft, curved double-pointed metal head on top.
 const pickaxeTool = new THREE.Group();
-const pickaxeHandle = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.045, 0.055, 2.35, 10),
-  new THREE.MeshStandardMaterial({ color: 0x8b542e, roughness: 0.85 }),
-);
-pickaxeHandle.rotation.z = -0.18;
-pickaxeTool.add(pickaxeHandle);
-const pickaxeHead = new THREE.Mesh(
-  new THREE.CylinderGeometry(0.035, 0.12, 1.15, 8),
-  new THREE.MeshStandardMaterial({ color: 0x77838a, metalness: 0.65, roughness: 0.35 }),
-);
-pickaxeHead.rotation.z = Math.PI / 2;
-pickaxeHead.position.set(-0.2, -1.05, 0);
-pickaxeTool.add(pickaxeHead);
-const pickaxePoint = new THREE.Mesh(
-  new THREE.ConeGeometry(0.12, 0.48, 8),
-  new THREE.MeshStandardMaterial({ color: 0x657177, metalness: 0.7, roughness: 0.3 }),
-);
-pickaxePoint.rotation.z = -Math.PI / 2;
-pickaxePoint.position.set(-0.98, -1.05, 0);
-pickaxeTool.add(pickaxePoint);
+const pickaxeWoodMaterial = new THREE.MeshStandardMaterial({ color: 0xc9a06a, roughness: 0.85 });
+const pickaxeMetalMaterial = new THREE.MeshStandardMaterial({ color: 0x9aa3a8, metalness: 0.7, roughness: 0.3, flatShading: true });
+const pickaxeSocketMaterial = new THREE.MeshStandardMaterial({ color: 0x5f6a70, metalness: 0.5, roughness: 0.45 });
+const pickaxeGrip = new THREE.Vector3(0.15, -0.05, 0);
+const pickaxeMount = new THREE.Vector3(-0.1, -1, 0);
+const pickaxeLeftMid = new THREE.Vector3(-0.5, -0.85, 0);
+const pickaxeLeftTip = new THREE.Vector3(-0.88, -1.18, 0);
+const pickaxeRightMid = new THREE.Vector3(0.32, -0.85, 0);
+const pickaxeRightTip = new THREE.Vector3(0.68, -1.18, 0);
+pickaxeTool.add(cylinderBetween(pickaxeGrip, pickaxeMount, 0.045, 0.06, pickaxeWoodMaterial));
+const pickaxeSocket = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.16), pickaxeSocketMaterial);
+pickaxeSocket.position.copy(pickaxeMount);
+pickaxeTool.add(pickaxeSocket);
+pickaxeTool.add(boxBetween(pickaxeMount, pickaxeLeftMid, 0.13, 0.08, pickaxeMetalMaterial));
+pickaxeTool.add(boxBetween(pickaxeLeftMid, pickaxeLeftTip, 0.08, 0.06, pickaxeMetalMaterial));
+pickaxeTool.add(boxBetween(pickaxeMount, pickaxeRightMid, 0.13, 0.08, pickaxeMetalMaterial));
+pickaxeTool.add(boxBetween(pickaxeRightMid, pickaxeRightTip, 0.08, 0.06, pickaxeMetalMaterial));
 pickaxeTool.rotation.set(Math.PI / 2, 0, -0.32);
 pickaxeTool.position.z = -0.75;
 
-function fallbackFor(toolId: ToolId) {
-  return toolId === 'pickaxe' || toolId === 'neonPickaxe' ? pickaxeTool : fallbackTool;
+const vacuumTool = new THREE.Group();
+const vacuumHandle = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.035, 0.045, 2.1, 8),
+  new THREE.MeshStandardMaterial({ color: 0x384049, roughness: 0.5, metalness: 0.3 }),
+);
+vacuumHandle.rotation.z = -0.3;
+vacuumHandle.position.set(0.25, -0.15, 0);
+vacuumTool.add(vacuumHandle);
+const vacuumBody = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.16, 0.14, 0.55, 8),
+  new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.4, metalness: 0.25 }),
+);
+vacuumBody.rotation.z = -0.3;
+vacuumBody.position.set(-0.15, -1, 0);
+vacuumTool.add(vacuumBody);
+const vacuumHead = new THREE.Mesh(
+  new THREE.BoxGeometry(0.9, 0.16, 0.3),
+  new THREE.MeshStandardMaterial({ color: 0x232a30, roughness: 0.5, metalness: 0.3 }),
+);
+vacuumHead.position.set(-0.12, -1.32, 0);
+vacuumTool.add(vacuumHead);
+const vacuumRoller = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.09, 0.09, 0.82, 8),
+  new THREE.MeshStandardMaterial({ color: 0xb3271e, roughness: 0.8 }),
+);
+vacuumRoller.rotation.z = Math.PI / 2;
+vacuumRoller.position.set(-0.12, -1.42, 0);
+vacuumTool.add(vacuumRoller);
+vacuumTool.rotation.set(Math.PI / 2, 0, -0.32);
+vacuumTool.position.y = -0.1;
+
+function buildSickle(bladeColor: number, handleColor: number, sizeScale: number) {
+  const group = new THREE.Group();
+  const handleMaterial = new THREE.MeshStandardMaterial({ color: handleColor, roughness: 0.85 });
+  const bladeMaterial = new THREE.MeshStandardMaterial({ color: bladeColor, metalness: 0.75, roughness: 0.3, flatShading: true });
+  const grip = new THREE.Vector3(0.15, -0.05, 0);
+  const bladeBase = new THREE.Vector3(-0.05 * sizeScale, -0.85 * sizeScale, 0);
+  const bladeMid = new THREE.Vector3(-0.45 * sizeScale, -1.15 * sizeScale, 0);
+  const bladeTip = new THREE.Vector3(-0.55 * sizeScale, -1.55 * sizeScale, 0);
+  group.add(cylinderBetween(grip, bladeBase, 0.045 * sizeScale, 0.03 * sizeScale, handleMaterial));
+  group.add(boxBetween(bladeBase, bladeMid, 0.22 * sizeScale, 0.045 * sizeScale, bladeMaterial));
+  group.add(boxBetween(bladeMid, bladeTip, 0.16 * sizeScale, 0.045 * sizeScale, bladeMaterial));
+  group.rotation.set(Math.PI / 2, 0, -0.32);
+  group.position.y = -0.18;
+  return group;
+}
+const copperSickleTool = buildSickle(0xc07a3e, 0x6b4127, 0.72);
+const metalSickleTool = buildSickle(0xd7dde0, 0x55483a, 0.85);
+
+function builtinToolFor(toolId: ToolId): THREE.Group {
+  switch (toolId) {
+    case 'basicBroom': return basicBroomTool;
+    case 'vacuum': return vacuumTool;
+    case 'copperSickle': return copperSickleTool;
+    case 'metalSickle': return metalSickleTool;
+    case 'pickaxe': return pickaxeTool;
+    case 'neonSickle': return metalSickleTool;
+    case 'neonPickaxe': return pickaxeTool;
+    default: return fallbackTool;
+  }
 }
 
 const toolAnchor = new THREE.Group();
@@ -333,39 +457,36 @@ function showToolModel(toolId: ToolId) {
   const modelPath = definition.model;
   if (!modelPath) {
     toolAnchor.clear();
-    toolAnchor.add(fallbackFor(toolId));
+    toolAnchor.add(builtinToolFor(toolId));
     return;
   }
+  // Tools that still load a GLTF model instead of a code-built shape. Tweak x/y/z/roll per tool here.
+  const gltfToolOffsets: Partial<Record<ToolId, { x: number; y: number; z: number; roll: number; yaw?: number }>> = {
+    neonPickaxe: { x: -0.7, y: 0.2, z: 0.5, roll: 2.85 , yaw: -Math.PI/1.8},
+    neonSickle: { x: -0.1, y: -0.1, z: 0, roll: -2 , yaw: Math.PI/2.5},
+    vacuum: { x: -0.5, y: 0.2, z: -1, roll: 0, yaw: Math.PI },
+  };
   loader.load(modelPath, (gltf) => {
     if (request !== modelRequest) return;
     const model = gltf.scene;
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
-    const isNeonTool = toolId === 'neonSickle' || toolId === 'neonPickaxe';
-    const targetModelSize = isNeonTool ? 1.35 : 1.8;
-    const scale = targetModelSize / Math.max(size.x, size.y, size.z, 0.001);
+    const scale = 1.35 / Math.max(size.x, size.y, size.z, 0.001);
     model.scale.setScalar(scale);
     model.position.copy(center.multiplyScalar(-scale));
-    model.position.y += 0.3;
-    if (toolId === 'vacuum') model.position.y += 0.2;
-    if (isNeonTool) {
-      model.position.x += 0.45;
-      model.position.y += 0.25;
-    }
-    model.position.z -= 1.1;
-    const handleNeedsFlip = toolId === 'copperSickle' || toolId === 'metalSickle' || toolId === 'pickaxe'
-      || toolId === 'neonSickle' || toolId === 'neonPickaxe';
-    const screenRotation = -0.32 + (isNeonTool ? Math.PI : 0);
-    if (toolId === 'vacuum') model.rotation.order = 'ZXY';
-    model.rotation.set(handleNeedsFlip ? -Math.PI / 2 : Math.PI / 2, 0, screenRotation);
+    const offset = gltfToolOffsets[toolId] ?? { x: 0, y: 0, z: 0, roll: 0 };
+    model.position.x += offset.x;
+    model.position.y += offset.y;
+    model.position.z += offset.z;
+    model.rotation.set(Math.PI / 2, offset.yaw ?? 0, offset.roll);
     model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = true; });
     toolAnchor.clear();
     toolAnchor.add(model);
   }, undefined, () => {
     if (request !== modelRequest) return;
     toolAnchor.clear();
-    toolAnchor.add(fallbackFor(toolId));
+    toolAnchor.add(builtinToolFor(toolId));
   });
 }
 
@@ -375,21 +496,38 @@ const standingHeight = 1.85;
 let verticalVelocity = 0;
 let grounded = true;
 type UpgradeId = 'cleanSpeed' | 'moveSpeed' | 'coinBonus' | 'radius';
+interface PlayerStats {
+  leafCleaned: number;
+  canCleaned: number;
+  coinsEarned: number;
+  regionsCleared: number;
+  totalCleaned: number;
+}
 interface SaveData {
   coins: number;
   gems: number;
   currentRegion: RegionId;
   unlockedRegion: RegionId;
+  regionProgress: Partial<Record<RegionId, RegionProgressState>>;
   unlockedTools: ToolId[];
   upgrades: Record<UpgradeId, number>;
+  stats: PlayerStats;
+  missionProgress: Record<MissionId, number>;
+  achievementsClaimed: AchievementId[];
 }
+const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
+const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
 const defaultSave: SaveData = {
   coins: 0,
   gems: 300,
   currentRegion: 1,
   unlockedRegion: 1,
+  regionProgress: {},
   unlockedTools: ['basicBroom'],
   upgrades: { cleanSpeed: 0, moveSpeed: 0, coinBonus: 0, radius: 0 },
+  stats: { ...defaultStats },
+  missionProgress: { ...defaultMissionProgress },
+  achievementsClaimed: [],
 };
 function loadSave(): SaveData {
   try {
@@ -399,8 +537,12 @@ function loadSave(): SaveData {
       gems: Number.isFinite(Number(parsed.gems)) ? Math.max(0, Number(parsed.gems)) : defaultSave.gems,
       currentRegion: ([1, 2, 3].includes(Number(parsed.currentRegion)) ? Number(parsed.currentRegion) : 1) as RegionId,
       unlockedRegion: ([1, 2, 3].includes(Number(parsed.unlockedRegion)) ? Number(parsed.unlockedRegion) : 1) as RegionId,
+      regionProgress: parsed.regionProgress ?? {},
       unlockedTools: Array.isArray(parsed.unlockedTools) ? parsed.unlockedTools : ['basicBroom'],
       upgrades: { ...defaultSave.upgrades, ...(parsed.upgrades ?? {}) },
+      stats: { ...defaultStats, ...(parsed.stats ?? {}) },
+      missionProgress: { ...defaultMissionProgress, ...(parsed.missionProgress ?? {}) },
+      achievementsClaimed: Array.isArray(parsed.achievementsClaimed) ? parsed.achievementsClaimed : [],
     };
   } catch { return structuredClone(defaultSave); }
 }
@@ -409,6 +551,11 @@ let coins = saveData.coins;
 let gems = saveData.gems;
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
+const regionProgress = saveData.regionProgress;
+const stats = saveData.stats;
+const missionProgress = saveData.missionProgress;
+const achievementsClaimed = new Set<AchievementId>(saveData.achievementsClaimed);
+let regionEnterTimestamp = performance.now();
 let cleaned = 0;
 let regionCompleted = false;
 let isCleaning = false;
@@ -463,6 +610,21 @@ const buttonSound = new Audio('/assets/button-sound.mp3');
 buttonSound.volume = 0.45;
 const regionCompleteSound = new Audio('/assets/region-complete-sound.mp3');
 regionCompleteSound.volume = 0.75;
+const coinSound = new Audio('/assets/coin-sound.mp3');
+coinSound.volume = 0.55;
+const jumpLandSound = new Audio('/assets/jump-land-sound.mp3');
+jumpLandSound.volume = 0.6;
+const footstepSound = new Audio('/assets/footstep-sound.mp3');
+footstepSound.loop = true;
+footstepSound.volume = 0.35;
+function playCoinSound() {
+  coinSound.currentTime = 0;
+  void coinSound.play().catch(() => undefined);
+}
+function playJumpLandSound() {
+  jumpLandSound.currentTime = 0;
+  void jumpLandSound.play().catch(() => undefined);
+}
 const cleaningSounds = {
   broom: new Audio('/assets/broom-sound.mp3'),
   vacuum: new Audio('/assets/vacuum-sound.mp3'),
@@ -519,8 +681,12 @@ function persist() {
     gems,
     currentRegion: currentRegionId,
     unlockedRegion,
+    regionProgress,
     unlockedTools: [...unlockedTools],
     upgrades,
+    stats,
+    missionProgress,
+    achievementsClaimed: [...achievementsClaimed],
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
 }
@@ -534,11 +700,52 @@ function updateHud(reward = 0, gemReward = 0) {
   progressEl.style.width = `${percentage}%`;
   progressText.textContent = `${percentage}%`;
   if (reward > 0 || gemReward > 0) {
+    playCoinSound();
     feedback.textContent = [reward > 0 ? `+${reward} 코인` : '', gemReward > 0 ? `+${gemReward} 💎` : ''].filter(Boolean).join(' · ');
     feedback.classList.remove('show');
     void feedback.offsetWidth;
     feedback.classList.add('show');
   }
+}
+
+function achievementProgressValue(id: AchievementId): number {
+  switch (id) {
+    case 'firstClean': return Math.min(stats.totalCleaned, 1);
+    case 'coins1000': return stats.coinsEarned;
+    case 'allRegions': return unlockedRegion >= 3 ? 1 : 0;
+    case 'leaf10000': return stats.leafCleaned;
+  }
+}
+
+function claimMission(id: MissionId) {
+  const definition = missionPool.find((mission) => mission.id === id);
+  if (!definition || (missionProgress[id] ?? 0) < definition.target) return;
+  const rewardCoins = definition.reward.coins > 0
+    ? Math.max(1, Math.round(definition.reward.coins * (1 + upgrades.coinBonus * 0.2)))
+    : 0;
+  coins += rewardCoins;
+  gems += definition.reward.gems;
+  missionProgress[id] = 0;
+  persist();
+  updateHud(rewardCoins, definition.reward.gems);
+  refreshShop();
+  showNotice(`${definition.label} 보상 수령!`);
+}
+
+function claimAchievement(id: AchievementId) {
+  if (achievementsClaimed.has(id)) return;
+  const definition = achievements[id];
+  if (achievementProgressValue(id) < definition.target) return;
+  const rewardCoins = definition.reward.coins > 0
+    ? Math.max(1, Math.round(definition.reward.coins * (1 + upgrades.coinBonus * 0.2)))
+    : 0;
+  coins += rewardCoins;
+  gems += definition.reward.gems;
+  achievementsClaimed.add(id);
+  persist();
+  updateHud(rewardCoins, definition.reward.gems);
+  refreshShop();
+  showNotice(`${definition.label} 달성!`);
 }
 
 function equipTool(toolId: ToolId) {
@@ -614,12 +821,24 @@ function jump() {
   grounded = false;
 }
 
+function incrementMissionProgress(id: MissionId, amount = 1) {
+  const definition = missionPool.find((mission) => mission.id === id);
+  if (!definition) return;
+  missionProgress[id] = Math.min(definition.target, (missionProgress[id] ?? 0) + amount);
+}
+
 function enterRegion(regionId: RegionId) {
   stopCleaning();
+  regionEnterTimestamp = performance.now();
   currentRegionId = regionId;
-  cleaned = 0;
   regionCompleted = false;
-  populateRegion(regionId);
+  let state = regionProgress[regionId];
+  if (!state) {
+    const remaining = freshRegionCounts(regionId);
+    state = { remaining, total: Object.values(remaining).reduce((sum, count) => sum + count, 0) };
+    regionProgress[regionId] = state;
+  }
+  populateRegion(regionId, state);
   regionNameEl.textContent = regions[regionId].name;
   regionCompleteCard.classList.add('hidden');
   camera.position.set(0, standingHeight, 8);
@@ -633,18 +852,34 @@ function enterRegion(regionId: RegionId) {
 function completeRegion() {
   if (regionCompleted) return;
   regionCompleted = true;
+  delete regionProgress[currentRegionId];
   stopCleaning();
   bgmTracks.forEach((audio) => audio.pause());
   regionCompleteSound.currentTime = 0;
   void regionCompleteSound.play().catch(() => undefined);
+
+  const completionReward = regionCompletionRewards[currentRegionId];
+  const rewardCoins = completionReward.coins > 0
+    ? Math.max(1, Math.round(completionReward.coins * (1 + upgrades.coinBonus * 0.2)))
+    : 0;
+  coins += rewardCoins;
+  gems += completionReward.gems;
+  stats.coinsEarned += rewardCoins;
+  stats.regionsCleared += 1;
+  incrementMissionProgress('regionClear');
+  if (performance.now() - regionEnterTimestamp <= 5 * 60 * 1000) incrementMissionProgress('fastClear5min');
+  const rewardLabel = [rewardCoins > 0 ? `+${rewardCoins} 코인` : '', completionReward.gems > 0 ? `+${completionReward.gems} 💎` : '']
+    .filter(Boolean).join(' · ');
+
   if (currentRegionId < 3) {
     unlockedRegion = Math.max(unlockedRegion, currentRegionId + 1) as RegionId;
-    regionCompleteTitle.textContent = `${regions[currentRegionId].name} 청소 완료!`;
+    regionCompleteTitle.textContent = `${regions[currentRegionId].name} 청소 완료!${rewardLabel ? ` (${rewardLabel})` : ''}`;
     regionCompleteAction.textContent = `${regions[(currentRegionId + 1) as RegionId].name}(으)로 이동`;
   } else {
-    regionCompleteTitle.textContent = '모든 지역 청소 완료!';
+    regionCompleteTitle.textContent = `모든 지역 청소 완료!${rewardLabel ? ` (${rewardLabel})` : ''}`;
     regionCompleteAction.textContent = '앞 마당부터 다시 플레이';
   }
+  updateHud(rewardCoins, completionReward.gems);
   persist();
   regionCompleteCard.classList.remove('hidden');
   document.exitPointerLock?.();
@@ -659,7 +894,15 @@ function removeObject(object: Cleanable) {
   const gemReward = definition.gemReward ?? 0;
   coins += reward;
   gems += gemReward;
+  const state = regionProgress[currentRegionId];
+  if (state) state.remaining[object.userData.kind] = Math.max(0, (state.remaining[object.userData.kind] ?? 0) - 1);
   cleaned += 1;
+  stats.totalCleaned += 1;
+  stats.coinsEarned += reward;
+  if (object.userData.kind === 'leaf') stats.leafCleaned += 1;
+  if (object.userData.kind === 'can') stats.canCleaned += 1;
+  if (object.userData.kind === 'leaf') incrementMissionProgress('leaf100');
+  if (object.userData.kind === 'can') incrementMissionProgress('can30');
   updateHud(reward, gemReward);
   persist();
   if (cleaned >= total) completeRegion();
@@ -810,6 +1053,40 @@ function refreshShop() {
     button.classList.toggle('owned', owned);
     button.textContent = owned ? '보유 중' : `💎 ${premiumToolPrices[id] ?? 0}`;
   });
+  document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => {
+    const id = Number(button.dataset.region) as RegionId;
+    const locked = id > unlockedRegion;
+    const current = id === currentRegionId;
+    const state = regionProgress[id];
+    const remaining = state ? Object.values(state.remaining).reduce((sum, count) => sum + (count ?? 0), 0) : undefined;
+    const percentage = state && state.total > 0 ? Math.round(((state.total - (remaining ?? state.total)) / state.total) * 100) : 0;
+    button.disabled = locked || current;
+    button.classList.toggle('owned', current);
+    button.textContent = locked ? '잠김' : current ? '현재 지역' : '이동';
+    const label = document.querySelector<HTMLElement>(`[data-region-progress="${id}"]`)!;
+    label.textContent = locked ? '이전 지역 완료 시 해금' : `진행도 ${percentage}%`;
+  });
+  document.querySelectorAll<HTMLButtonElement>('.claim-mission').forEach((button) => {
+    const id = button.dataset.mission as MissionId;
+    const definition = missionPool.find((mission) => mission.id === id)!;
+    const progress = missionProgress[id] ?? 0;
+    document.querySelector<HTMLElement>(`[data-mission-progress="${id}"]`)!.textContent = `${progress} / ${definition.target}`;
+    const ready = progress >= definition.target;
+    button.disabled = !ready;
+    button.classList.toggle('claimed', ready);
+    button.textContent = ready ? '받기' : `${progress}/${definition.target}`;
+  });
+  document.querySelectorAll<HTMLButtonElement>('.claim-achievement').forEach((button) => {
+    const id = button.dataset.achievement as AchievementId;
+    const definition = achievements[id];
+    const claimed = achievementsClaimed.has(id);
+    const progress = Math.min(achievementProgressValue(id), definition.target);
+    document.querySelector<HTMLElement>(`[data-achievement-progress="${id}"]`)!.textContent = `${progress} / ${definition.target}`;
+    const ready = !claimed && progress >= definition.target;
+    button.disabled = claimed || !ready;
+    button.classList.toggle('claimed', claimed);
+    button.textContent = claimed ? '완료' : ready ? '받기' : `${progress}/${definition.target}`;
+  });
 }
 function toggleShop(force?: boolean) {
   shopOpen = force ?? !shopOpen;
@@ -857,6 +1134,19 @@ document.querySelectorAll<HTMLButtonElement>('.buy-premium-tool').forEach((butto
   refreshShop();
   equipTool(id);
   showNotice(`${tools[id].name} 해금!`);
+}));
+document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => button.addEventListener('click', () => {
+  const id = Number(button.dataset.region) as RegionId;
+  if (id > unlockedRegion || id === currentRegionId) return;
+  enterRegion(id);
+  toggleShop(false);
+  showNotice(`${regions[id].name}(으)로 이동`);
+}));
+document.querySelectorAll<HTMLButtonElement>('.claim-mission').forEach((button) => button.addEventListener('click', () => {
+  claimMission(button.dataset.mission as MissionId);
+}));
+document.querySelectorAll<HTMLButtonElement>('.claim-achievement').forEach((button) => button.addEventListener('click', () => {
+  claimAchievement(button.dataset.achievement as AchievementId);
 }));
 
 let joystickPointer: number | undefined;
@@ -942,13 +1232,29 @@ function animate() {
       camera.position.y = standingHeight;
       verticalVelocity = 0;
       grounded = true;
+      playJumpLandSound();
     }
+  }
+  if (isMoving && grounded) {
+    if (footstepSound.paused) void footstepSound.play().catch(() => undefined);
+  } else if (!footstepSound.paused) {
+    footstepSound.pause();
+    footstepSound.currentTime = 0;
   }
   const walkBob = isMoving ? Math.sin(performance.now() * 0.012) * 0.025 : 0;
   toolAnchor.position.x = toolRestX;
   toolAnchor.position.y = THREE.MathUtils.lerp(toolAnchor.position.y, toolRestY + walkBob, 0.18);
-  if (isCleaning) toolAnchor.rotation.x = Math.sin(performance.now() * 0.045) * 0.045 - 0.02;
-  else toolAnchor.rotation.x = THREE.MathUtils.lerp(toolAnchor.rotation.x, -0.1, 0.15);
+  if (isCleaning && (currentToolId === 'pickaxe' || currentToolId === 'neonPickaxe')) {
+    // Overhead strike: slow raise, then a quick downward chop.
+    const raiseFraction = 0.62;
+    const cycleT = (performance.now() % 620) / 620;
+    const raiseAmount = cycleT < raiseFraction ? cycleT / raiseFraction : 1 - (cycleT - raiseFraction) / (1 - raiseFraction);
+    toolAnchor.rotation.x = -0.15 - raiseAmount * 0.85;
+  } else if (isCleaning) {
+    toolAnchor.rotation.x = Math.sin(performance.now() * 0.045) * 0.045 - 0.02;
+  } else {
+    toolAnchor.rotation.x = THREE.MathUtils.lerp(toolAnchor.rotation.x, -0.1, 0.15);
+  }
   renderer.render(scene, camera);
 }
 animate();
