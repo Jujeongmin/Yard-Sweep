@@ -99,6 +99,7 @@ button { font: inherit; }
 .settings-row { display:flex; gap:8px; }
 .lang-option { flex:1; padding:9px; border:0; border-radius:12px; background:white; color:#51645c; box-shadow:0 3px 0 #bdcdb6; cursor:pointer; }
 .lang-option.selected { color:white; background:#395c55; box-shadow:0 3px 0 #223a34; }
+.settings-btn { flex: 1; padding: 9px; border: 0; border-radius: 12px; background: white; color: #51645c; box-shadow: 0 3px 0 #bdcdb6; cursor: pointer; }
 .settings-note { margin:8px 0 0; color:#74827d; font-size:11px; }
 .settings-toggle { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
 .mobile-only-setting { display:none; }

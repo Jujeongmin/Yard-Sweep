@@ -111,6 +111,7 @@ const ko: Dict = {
   'ranking.note': '플랫폼 랭킹은 배포 후 연동됩니다.',
 
   'settings.title': '설정',
+  'settings.nickname': '닉네임',
   'settings.language': '언어',
   'settings.bgmVolume': 'BGM 볼륨',
   'settings.sfxVolume': '효과음 볼륨',
@@ -247,6 +248,7 @@ const en: Dict = {
   'ranking.note': 'Platform ranking will be connected after release.',
 
   'settings.title': 'Settings',
+  'settings.nickname': 'Nickname',
   'settings.language': 'Language',
   'settings.bgmVolume': 'BGM Volume',
   'settings.sfxVolume': 'SFX Volume',
