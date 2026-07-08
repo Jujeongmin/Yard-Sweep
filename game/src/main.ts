@@ -1724,18 +1724,34 @@ joystick?.addEventListener('pointerup', () => {
 
 let lastTouchX = 0;
 let lastTouchY = 0;
+let canvasTouchId: number | null = null;
 canvas.addEventListener('touchstart', (event) => {
-  const touch = event.touches[0];
+  if (canvasTouchId !== null || event.target !== canvas) return;
+  const touch = event.changedTouches[0];
+  canvasTouchId = touch.identifier;
   lastTouchX = touch.clientX;
   lastTouchY = touch.clientY;
 }, { passive: true });
 canvas.addEventListener('touchmove', (event) => {
-  const touch = event.touches[0];
-  yaw -= (touch.clientX - lastTouchX) * 0.006 * settings.sensitivity;
-  pitch -= (touch.clientY - lastTouchY) * 0.004 * settings.sensitivity;
-  pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
-  lastTouchX = touch.clientX;
-  lastTouchY = touch.clientY;
+  for (let i = 0; i < event.changedTouches.length; i++) {
+    const touch = event.changedTouches[i];
+    if (touch.identifier === canvasTouchId) {
+      yaw -= (touch.clientX - lastTouchX) * 0.006 * settings.sensitivity;
+      pitch -= (touch.clientY - lastTouchY) * 0.004 * settings.sensitivity;
+      pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
+      lastTouchX = touch.clientX;
+      lastTouchY = touch.clientY;
+      break;
+    }
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', (event) => {
+  for (let i = 0; i < event.changedTouches.length; i++) {
+    if (event.changedTouches[i].identifier === canvasTouchId) {
+      canvasTouchId = null;
+      break;
+    }
+  }
 }, { passive: true });
 
 function resize() {
