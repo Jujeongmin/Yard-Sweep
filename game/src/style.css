@@ -509,12 +509,14 @@ button { font: inherit; }
   #mobile-controls, #mobile-controls * {
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
-#clean-button {
+  #clean-button {
     position: fixed; z-index: 7; border: clamp(3px,0.5vw,4px) solid white;
     border-radius: 50%; color: white; touch-action: none;
     right: clamp(16px,3vw,20px); bottom: clamp(18px,3.5vw,24px);
     width: clamp(72px,13vw,82px); height: clamp(72px,13vw,82px);
     background: #4eaf3f; font-size: clamp(22px,4vw,28px);
+    -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-user-drag: none;
   }
   #clean-button:active { transform: translateY(clamp(3px,0.5vw,4px)); }
   #clean-button small { display: block; font-size: var(--fs-xs); }

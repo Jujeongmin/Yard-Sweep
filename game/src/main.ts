@@ -1309,7 +1309,7 @@ function startGame() {
   gameStarted = true;
   start.classList.add('hidden');
   if (isTouchDevice()) {
-    camera.position.set(0, standingHeight, 15);
+    camera.position.set(0, standingHeight, 13);
     camera.fov = 72;
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
