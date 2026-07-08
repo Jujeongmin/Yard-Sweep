@@ -408,7 +408,7 @@ button { font: inherit; }
 }
 
 /* ── Portrait mobile: force landscape fullscreen ── */
-@media (max-width: 850px) and (orientation: portrait) {
+@media (max-width: 850px) and (pointer: coarse) and (orientation: portrait) {
   .hud { display: none; }
   .inventory { display: none; }
   .controls { display: none; }

@@ -902,7 +902,11 @@ function playRegionBgm() {
 }
 
 function usesMobileControls() {
-  return matchMedia('(max-width: 850px), (pointer: coarse)').matches;
+  return matchMedia('(max-width: 850px) and (pointer: coarse)').matches;
+}
+
+function isTouchDevice() {
+  return matchMedia('(pointer: coarse)').matches;
 }
 
 async function enterFullscreen() {
@@ -1314,7 +1318,7 @@ function startGame() {
 }
 
 start.addEventListener('click', async () => {
-  if (usesMobileControls() && !document.fullscreenElement) {
+  if (isTouchDevice() && !document.fullscreenElement) {
     await enterFullscreen();
     return;
   }
@@ -1322,10 +1326,10 @@ start.addEventListener('click', async () => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement && usesMobileControls() && !gameStarted) {
+  if (document.fullscreenElement && isTouchDevice() && !gameStarted) {
     startGame();
   }
-  if (!document.fullscreenElement && usesMobileControls() && !shopOpen && !settingsOpen) {
+  if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
     gameStarted = false;
     stopCleaning();
     bgmTracks.forEach((audio) => audio.pause());
