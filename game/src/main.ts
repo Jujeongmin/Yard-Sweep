@@ -1308,7 +1308,12 @@ function startGame() {
   if (gameStarted) return;
   gameStarted = true;
   start.classList.add('hidden');
-  camera.position.set(0, standingHeight, cameraBaseZ);
+  if (isTouchDevice()) {
+    camera.position.set(0, standingHeight, 15);
+    camera.fov = 72;
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+  }
   yaw = 0;
   pitch = -0.12;
   playRegionBgm();
