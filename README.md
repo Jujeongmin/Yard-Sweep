@@ -1,15 +1,13 @@
 # Yard Sweep
 
-TypeScript와 Three.js로 제작 중인 1인칭 마당 청소 게임 프로토타입입니다.
+TypeScript + Three.js 1인칭 마당 청소 게임.
 
 ## 실행
 
 ```bash
-npm install
-npm run dev
+bun install
+bun run dev
 ```
-
-브라우저에서 터미널에 표시된 로컬 주소로 접속합니다.
 
 ## 조작
 
@@ -20,8 +18,16 @@ npm run dev
 - Tab: 상점 열기/닫기
 - T: 설정 열기/닫기
 
-모바일에서는 가로 화면과 전체화면 플레이를 권장합니다.
+모바일은 가로 모드 전체화면 플레이 권장.
 
 ## 구조
 
-Verse8 플랫폼 배포를 위해 Vite 프로젝트 루트(`index.html`, `src/`, `public/`)를 `game/` 폴더 아래에 둔다. `vite.config.ts`가 저장소 루트에서 `root: 'game'`을 지정하며, 빌드 결과물은 `dist/`(저장소 루트)에 생성된다.
+- `game/` — 게임 소스 (Vite entry)
+- `server/` — Agent8 GameServer 서버 로직 (랭킹, 닉네임)
+- `dist/` — 빌드 결과물
+
+## 테스트
+
+```bash
+npx -y @agent8/gameserver-node test
+```
