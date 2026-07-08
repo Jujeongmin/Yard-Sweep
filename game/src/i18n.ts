@@ -51,6 +51,9 @@ const ko: Dict = {
   'hint.initial': '빗자루로 낙엽과 캔을 청소하세요',
   'hint.toolTargets': '{tool} · {targets} 청소 가능',
 
+  'controls.keys': 'WASD',
+  'controls.mouse': '마우스',
+  'controls.click': '좌클릭',
   'controls.move': '이동',
   'controls.view': '시점',
   'controls.clean': '청소',
@@ -196,6 +199,9 @@ const en: Dict = {
   'hint.initial': 'Use the broom to clean leaves and cans',
   'hint.toolTargets': '{tool} · Can clean {targets}',
 
+  'controls.keys': 'WASD',
+  'controls.mouse': 'Mouse',
+  'controls.click': 'Left Click',
   'controls.move': 'Move',
   'controls.view': 'Look',
   'controls.clean': 'Clean',
