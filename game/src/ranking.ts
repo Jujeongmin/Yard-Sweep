@@ -1,4 +1,5 @@
 import { GameServer } from '@agent8/gameserver';
+import { t } from './i18n';
 
 let server: GameServer | null = null;
 let connected = false;
@@ -29,26 +30,26 @@ export function getNickname() {
 }
 
 export async function setNickname(value: string) {
-  if (!server || !connected) return '서버 연결 안됨';
+  if (!server || !connected) return t('ranking.serverNotConnected');
   try {
     await server.remoteFunction('setNickname', [value.trim()]);
     nickname = value.trim();
     updateNicknameUI();
     return null;
   } catch (e: any) {
-    return e?.message || '저장 실패';
+    return e?.message || t('settings.nicknameFail');
   }
 }
 
 export async function resetAllData(): Promise<string | null> {
-  if (!server || !connected) return '서버 연결 안됨';
+  if (!server || !connected) return t('ranking.serverNotConnected');
   try {
     await server.remoteFunction('resetAllData');
     nickname = null;
     updateNicknameUI();
     return null;
   } catch (e: any) {
-    return e?.message || '초기화 실패';
+    return e?.message || 'Reset failed';
   }
 }
 
@@ -71,7 +72,7 @@ export async function loadRankings() {
   const emptyEl = document.querySelector('#ranking-empty')!;
 
   if (!server || !connected) {
-    loadingEl.textContent = '서버에 연결되지 않았습니다.';
+    loadingEl.textContent = t('ranking.noConnection');
     return;
   }
 
@@ -110,7 +111,7 @@ export async function loadRankings() {
       emptyEl.classList.remove('hidden');
     }
   } catch {
-    loadingEl.textContent = '랭킹을 불러오지 못했습니다.';
+    loadingEl.textContent = t('ranking.loadError');
   } finally {
     loadingEl.classList.add('hidden');
   }
@@ -121,10 +122,10 @@ function updateNicknameUI() {
   const status = document.querySelector('#nickname-status')!;
   if (nickname) {
     input.value = nickname;
-    status.textContent = `현재: ${nickname}`;
+    status.textContent = `${nickname}`;
   } else {
     input.value = '';
-    status.textContent = '닉네임을 설정하면 랭킹에 등록됩니다.';
+    status.textContent = t('settings.nicknameHint');
   }
 }
 

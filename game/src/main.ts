@@ -1281,12 +1281,12 @@ regionAdDoubleBtn.addEventListener('click', (e) => {
   persist();
   regionAdDoubleBtn.classList.add('hidden');
   regionAdStatus.classList.remove('hidden');
-  regionAdStatus.textContent = `2x reward applied! (+${Math.floor(pendingAdRewardCoins)} coins, +${pendingAdRewardGems} gems)`;
+  regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
 });
 
 document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
   btn.addEventListener('click', () => {
-    showNotice('VX Shop will be available after deployment.');
+    showNotice(t('vxshop.comingSoon'));
   });
 });
 document.addEventListener('click', (event) => {
@@ -1501,10 +1501,10 @@ const nicknameStatus = document.querySelector('#nickname-status')!;
 nicknameSaveBtn.addEventListener('click', async () => {
   const val = nicknameInput.value.trim();
   if (!val) { nicknameStatus.textContent = '닉네임을 입력해주세요.'; return; }
-  nicknameSaveBtn.textContent = '저장 중...';
+  nicknameSaveBtn.textContent = t('settings.nicknameSaving');
   const error = await setNickname(val);
-  nicknameSaveBtn.textContent = '저장';
-  nicknameStatus.textContent = error || `저장됨: ${val}`;
+  nicknameSaveBtn.textContent = t('settings.nicknameSave');
+  nicknameStatus.textContent = error || t('settings.nicknameSaved', { name: val });
 });
 
 const resetDataBtn = document.querySelector<HTMLButtonElement>('#reset-data-btn')!;
@@ -1513,7 +1513,7 @@ let resetConfirming = false;
 
 function cancelResetConfirm() {
   resetConfirming = false;
-  resetDataBtn.textContent = '데이터 초기화';
+  resetDataBtn.textContent = t('settings.resetBtn');
   resetDataBtn.classList.remove('reset-btn-confirm');
   resetDataStatus.textContent = '';
 }
@@ -1521,13 +1521,13 @@ function cancelResetConfirm() {
 resetDataBtn.addEventListener('click', async () => {
   if (!resetConfirming) {
     resetConfirming = true;
-    resetDataBtn.textContent = '정말 초기화하시겠습니까?';
+    resetDataBtn.textContent = t('settings.resetConfirm');
     resetDataBtn.classList.add('reset-btn-confirm');
-    resetDataStatus.textContent = '모든 게임 데이터와 랭킹이 삭제됩니다.';
+    resetDataStatus.textContent = t('settings.resetConfirmDesc');
     return;
   }
 
-  resetDataBtn.textContent = '초기화 중...';
+  resetDataBtn.textContent = t('settings.resetting');
   resetDataBtn.classList.remove('reset-btn-confirm');
   resetDataStatus.textContent = '';
 
@@ -1537,7 +1537,7 @@ resetDataBtn.addEventListener('click', async () => {
   if (!error) {
     location.reload();
   } else {
-    resetDataBtn.textContent = '데이터 초기화';
+    resetDataBtn.textContent = t('settings.resetBtn');
     resetDataStatus.textContent = error;
   }
 });
@@ -1714,6 +1714,9 @@ function applyLocale() {
   document.documentElement.lang = getLocale();
   document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
     el.textContent = t(el.dataset.i18n!);
+  });
+  document.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPlaceholder!);
   });
   document.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach((el) => {
     el.setAttribute('aria-label', t(el.dataset.i18nAria!));

@@ -119,10 +119,26 @@ const ko: Dict = {
 
   'ranking.myLevel': '내 레벨',
   'ranking.note': '플랫폼 랭킹은 배포 후 연동됩니다.',
+  'ranking.loading': '로딩 중...',
+  'ranking.empty': '아직 랭킹이 없습니다.',
+  'ranking.noConnection': '서버에 연결되지 않았습니다.',
+  'ranking.loadError': '랭킹을 불러오지 못했습니다.',
+  'ranking.serverNotConnected': '서버 연결 안됨',
 
   'settings.title': '설정',
   'settings.nickname': '닉네임',
+  'settings.nicknamePlaceholder': '닉네임 입력',
+  'settings.nicknameSave': '저장',
+  'settings.nicknameSaving': '저장 중...',
+  'settings.nicknameSaved': '저장됨: {name}',
+  'settings.nicknameFail': '서버 연결 안됨',
+  'settings.nicknameHint': '닉네임을 설정하면 랭킹에 등록됩니다.',
   'settings.data': '데이터',
+  'settings.resetBtn': '데이터 초기화',
+  'settings.resetConfirm': '정말 초기화하시겠습니까?',
+  'settings.resetConfirmDesc': '모든 게임 데이터와 랭킹이 삭제됩니다.',
+  'settings.resetting': '초기화 중...',
+  'settings.resetDone': '초기화 완료',
   'settings.language': '언어',
   'settings.bgmVolume': 'BGM 볼륨',
   'settings.sfxVolume': '효과음 볼륨',
@@ -148,6 +164,9 @@ const ko: Dict = {
   'notice.upgradeComplete': '업그레이드 완료!',
   'notice.coinBoostActivated': '코인 부스터 발동! (30분간 코인 +100%)',
   'notice.robotVacuumAcquired': '로봇청소기 획득!',
+
+  'vxshop.comingSoon': 'VX Shop은 배포 후 이용 가능합니다.',
+  'ad.doubleApplied': '2x 보상 적용! (+{coins} 코인, +{gems} 보석)',
 };
 
 const en: Dict = {
@@ -267,10 +286,26 @@ const en: Dict = {
 
   'ranking.myLevel': 'My Level',
   'ranking.note': 'Platform ranking will be connected after release.',
+  'ranking.loading': 'Loading...',
+  'ranking.empty': 'No rankings yet.',
+  'ranking.noConnection': 'Not connected to server.',
+  'ranking.loadError': 'Failed to load rankings.',
+  'ranking.serverNotConnected': 'Server not connected',
 
   'settings.title': 'Settings',
   'settings.nickname': 'Nickname',
+  'settings.nicknamePlaceholder': 'Enter nickname',
+  'settings.nicknameSave': 'Save',
+  'settings.nicknameSaving': 'Saving...',
+  'settings.nicknameSaved': 'Saved: {name}',
+  'settings.nicknameFail': 'Server not connected',
+  'settings.nicknameHint': 'Set a nickname to appear on the leaderboard.',
   'settings.data': 'Data',
+  'settings.resetBtn': 'Reset Data',
+  'settings.resetConfirm': 'Are you sure?',
+  'settings.resetConfirmDesc': 'All game data and rankings will be deleted.',
+  'settings.resetting': 'Resetting...',
+  'settings.resetDone': 'Reset complete',
   'settings.language': 'Language',
   'settings.bgmVolume': 'BGM Volume',
   'settings.sfxVolume': 'SFX Volume',
@@ -296,6 +331,9 @@ const en: Dict = {
   'notice.upgradeComplete': 'Upgrade complete!',
   'notice.coinBoostActivated': 'Coin Booster activated! (+100% coins for 30 min)',
   'notice.robotVacuumAcquired': 'Robot Vacuum acquired!',
+
+  'vxshop.comingSoon': 'VX Shop will be available after deployment.',
+  'ad.doubleApplied': '2x reward applied! (+{coins} coins, +{gems} gems)',
 };
 
 const translations: Record<Locale, Dict> = { ko, en };
