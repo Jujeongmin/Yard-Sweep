@@ -14,6 +14,7 @@ import {
   type RegionId,
   type ToolId,
 } from './gameData';
+import { getLocale, setLocale, t } from './i18n';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -117,6 +118,92 @@ function randomOpenPosition(): [number, number] {
   return [x, z];
 }
 
+// Region visual themes: front yard (grass), garden (flowers/hedges), stone garden (rock/gravel).
+const regionThemes: Record<RegionId, { sky: number; fog: number; ground: number; path: number }> = {
+  1: { sky: 0x66c8f2, fog: 0x8dd4ef, ground: 0x75b94b, path: 0xd9bb83 },
+  2: { sky: 0x78d6b8, fog: 0x9fe4cf, ground: 0x4f9e3f, path: 0xc9a86a },
+  3: { sky: 0xe0c9a0, fog: 0xd8c295, ground: 0xab9877, path: 0x8f7a5c },
+};
+
+function flowerCluster(x: number, z: number, color: number) {
+  const group = new THREE.Group();
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.4, 5),
+    new THREE.MeshStandardMaterial({ color: 0x3f7a2f }),
+  );
+  stem.position.y = 0.2;
+  group.add(stem);
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2;
+    const petal = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 6, 5),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.6 }),
+    );
+    petal.position.set(Math.cos(angle) * 0.15, 0.42, Math.sin(angle) * 0.15);
+    group.add(petal);
+  }
+  const center = new THREE.Mesh(
+    new THREE.SphereGeometry(0.09, 6, 5),
+    new THREE.MeshStandardMaterial({ color: 0xffd23f }),
+  );
+  center.position.y = 0.42;
+  group.add(center);
+  group.position.set(x, 0, z);
+  group.castShadow = true;
+  return group;
+}
+
+const gardenDecor = new THREE.Group();
+const flowerColors = [0xe85f8a, 0xf2b6d4, 0x9b6fd6, 0xf7e14a];
+for (let i = 0; i < 36; i++) {
+  const [x, z] = randomOpenPosition();
+  gardenDecor.add(flowerCluster(x, z, flowerColors[Math.floor(Math.random() * flowerColors.length)]));
+}
+for (const side of [-1, 1]) {
+  for (let z = -16; z <= 16; z += 3.2) {
+    const hedge = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 7, 6),
+      new THREE.MeshStandardMaterial({ color: 0x3f8a3a, flatShading: true, roughness: 0.9 }),
+    );
+    hedge.position.set(side * 4.3, 0.5, z);
+    hedge.castShadow = hedge.receiveShadow = true;
+    gardenDecor.add(hedge);
+  }
+}
+gardenDecor.visible = false;
+scene.add(gardenDecor);
+
+// Flat stepping-stone slabs: a dry rock-garden look that reads clearly differently from the
+// small round dodecahedron "stone" cleanable objects.
+function slabStone(x: number, z: number) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.9 + Math.random() * 0.4, 0.12, 0.6 + Math.random() * 0.3),
+    new THREE.MeshStandardMaterial({ color: 0x9a9188, roughness: 1 }),
+  );
+  mesh.position.set(x, 0.06, z);
+  mesh.rotation.y = Math.random() * Math.PI;
+  mesh.castShadow = mesh.receiveShadow = true;
+  return mesh;
+}
+
+const stoneDecor = new THREE.Group();
+for (let i = 0; i < 18; i++) {
+  const [x, z] = randomOpenPosition();
+  stoneDecor.add(slabStone(x, z));
+}
+stoneDecor.visible = false;
+scene.add(stoneDecor);
+
+function applyRegionTheme(regionId: RegionId) {
+  const theme = regionThemes[regionId];
+  scene.background = new THREE.Color(theme.sky);
+  (scene.fog as THREE.Fog).color.setHex(theme.fog);
+  (ground.material as THREE.MeshStandardMaterial).color.setHex(theme.ground);
+  (path.material as THREE.MeshStandardMaterial).color.setHex(theme.path);
+  gardenDecor.visible = regionId === 2;
+  stoneDecor.visible = regionId === 3;
+}
+
 function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
   const group = new THREE.Group() as Cleanable;
   group.userData = { kind, progress: 0 };
@@ -128,10 +215,17 @@ function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
 
 function createLeaf(x: number, z: number) {
   const group = cleanableGroup('leaf', x, z);
+  // Five-lobed maple leaf silhouette (top, two upper side, two lower side lobes) with a short stem.
   const shape = new THREE.Shape();
-  shape.moveTo(0, 0.42); shape.lineTo(0.17, 0.12); shape.lineTo(0.43, 0);
-  shape.lineTo(0.16, -0.1); shape.lineTo(0, -0.42); shape.lineTo(-0.15, -0.1);
-  shape.lineTo(-0.4, 0); shape.lineTo(-0.16, 0.13); shape.closePath();
+  shape.moveTo(0, 0.5);
+  shape.lineTo(0.1, 0.3); shape.lineTo(0.4, 0.24);
+  shape.lineTo(0.18, 0.08); shape.lineTo(0.34, -0.15);
+  shape.lineTo(0.1, -0.18); shape.lineTo(0.09, -0.36);
+  shape.lineTo(0.03, -0.5);
+  shape.lineTo(-0.09, -0.36); shape.lineTo(-0.1, -0.18);
+  shape.lineTo(-0.34, -0.15); shape.lineTo(-0.18, 0.08);
+  shape.lineTo(-0.4, 0.24); shape.lineTo(-0.1, 0.3);
+  shape.closePath();
   const mesh = new THREE.Mesh(
     new THREE.ShapeGeometry(shape),
     new THREE.MeshStandardMaterial({
@@ -508,8 +602,6 @@ function showToolModel(toolId: ToolId) {
 let yaw = 0;
 let pitch = -0.12;
 const standingHeight = 1.85;
-let verticalVelocity = 0;
-let grounded = true;
 type UpgradeId = 'cleanSpeed' | 'moveSpeed' | 'coinBonus' | 'radius';
 interface PlayerStats {
   leafCleaned: number;
@@ -517,6 +609,13 @@ interface PlayerStats {
   coinsEarned: number;
   regionsCleared: number;
   totalCleaned: number;
+}
+interface GameSettings {
+  language: 'ko' | 'en';
+  bgmVolume: number;
+  sfxVolume: number;
+  sensitivity: number;
+  vibration: boolean;
 }
 interface SaveData {
   coins: number;
@@ -529,9 +628,13 @@ interface SaveData {
   stats: PlayerStats;
   missionProgress: Record<MissionId, number>;
   achievementsClaimed: AchievementId[];
+  coinBoostExpiry: number;
+  robotVacuumOwned: boolean;
+  settings: GameSettings;
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
+const defaultSettings: GameSettings = { language: 'ko', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true };
 const defaultSave: SaveData = {
   coins: 0,
   gems: 300,
@@ -543,6 +646,9 @@ const defaultSave: SaveData = {
   stats: { ...defaultStats },
   missionProgress: { ...defaultMissionProgress },
   achievementsClaimed: [],
+  coinBoostExpiry: 0,
+  robotVacuumOwned: false,
+  settings: { ...defaultSettings },
 };
 function loadSave(): SaveData {
   try {
@@ -558,6 +664,9 @@ function loadSave(): SaveData {
       stats: { ...defaultStats, ...(parsed.stats ?? {}) },
       missionProgress: { ...defaultMissionProgress, ...(parsed.missionProgress ?? {}) },
       achievementsClaimed: Array.isArray(parsed.achievementsClaimed) ? parsed.achievementsClaimed : [],
+      coinBoostExpiry: Number(parsed.coinBoostExpiry) || 0,
+      robotVacuumOwned: Boolean(parsed.robotVacuumOwned),
+      settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
     };
   } catch { return structuredClone(defaultSave); }
 }
@@ -566,16 +675,63 @@ let coins = saveData.coins;
 let gems = saveData.gems;
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
+// Prototype testing: keep all regions selectable regardless of saved progress.
+unlockedRegion = 3;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
 const achievementsClaimed = new Set<AchievementId>(saveData.achievementsClaimed);
+let coinBoostExpiry = saveData.coinBoostExpiry;
+let robotVacuumOwned = saveData.robotVacuumOwned;
+const settings = saveData.settings;
+setLocale(settings.language);
+document.documentElement.lang = settings.language;
+let robotVacuumTarget: Cleanable | null = null;
+// Independent world position: the robot roams and searches on its own, it does not follow the player.
+const robotVacuumPosition = new THREE.Vector3(0, 0, 5);
+const ROBOT_VACUUM_SPEED = 2.2;
+const ROBOT_VACUUM_ARRIVAL_RADIUS = 0.35;
+const robotVacuumGroup = new THREE.Group();
+robotVacuumGroup.visible = false;
+scene.add(robotVacuumGroup);
+function loadRobotVacuumModel() {
+  loader.load('/assets/RobotVacuum.glb', (gltf) => {
+    const model = gltf.scene;
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    const scale = 1 / Math.max(size.x, size.y, size.z, 0.001);
+    model.scale.setScalar(scale);
+    model.position.copy(center.multiplyScalar(-scale));
+    model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = true; });
+    robotVacuumGroup.add(model);
+  });
+}
+if (robotVacuumOwned) loadRobotVacuumModel();
+
+function updateRobotVacuumVisual() {
+  robotVacuumGroup.visible = robotVacuumOwned && gameStarted && !shopOpen;
+  if (!robotVacuumGroup.visible) return;
+  robotVacuumGroup.position.set(robotVacuumPosition.x, 0.18, robotVacuumPosition.z);
+  if (robotVacuumTarget) {
+    robotVacuumGroup.lookAt(robotVacuumTarget.position.x, 0.18, robotVacuumTarget.position.z);
+  }
+}
+function coinBoostMultiplier() {
+  return coinBoostExpiry > Date.now() ? 2 : 1;
+}
 let regionEnterTimestamp = performance.now();
 let cleaned = 0;
 let regionCompleted = false;
 let isCleaning = false;
 let cleaningHeld = false;
+let activeCleaningObjects = new Set<Cleanable>();
+let cleaningGraceTimer = 0;
+// Momentary aim dropout (e.g. crosshair edge jitter) shouldn't reset progress or restart the
+// cleaning sound; only a sustained loss of target for this long counts as a real interruption.
+const CLEANING_GRACE_PERIOD = 0.15;
 let shopOpen = false;
+let settingsOpen = false;
 let gameStarted = false;
 let currentToolId: ToolId = 'basicBroom';
 const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
@@ -587,19 +743,48 @@ const clock = new THREE.Clock();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const aimPoint = new THREE.Vector3();
 const ray = new THREE.Ray();
-const toolUi: Record<ToolId, { size: number; symbol: string }> = {
-  basicBroom: { size: 122, symbol: '🧹 기본 빗자루' },
-  wideBroom: { size: 176, symbol: '🧹 큰 빗자루' },
-  vacuum: { size: 154, symbol: '◉ 송풍기' },
-  copperSickle: { size: 142, symbol: '☾ 구리 낫' },
-  metalSickle: { size: 178, symbol: '☾ 금속 낫' },
-  pickaxe: { size: 112, symbol: '⛏ 곡괭이' },
-  neonSickle: { size: 188, symbol: '☾ 네온 낫' },
-  neonPickaxe: { size: 132, symbol: '⛏ 네온 곡괭이' },
+const toolUi: Record<ToolId, { size: number; icon: string }> = {
+  basicBroom: { size: 122, icon: '🧹' },
+  wideBroom: { size: 176, icon: '🧹' },
+  vacuum: { size: 154, icon: '◉' },
+  copperSickle: { size: 142, icon: '☾' },
+  metalSickle: { size: 178, icon: '☾' },
+  pickaxe: { size: 112, icon: '⛏' },
+  neonSickle: { size: 188, icon: '☾' },
+  neonPickaxe: { size: 132, icon: '⛏' },
 };
 
 const coinsEl = document.querySelector('#coins')!;
 const gemsEl = document.querySelector('#gems')!;
+const playerLevelEl = document.querySelector('#player-level')!;
+const levelBarFill = document.querySelector<HTMLElement>('#level-bar-fill')!;
+const rankingMyLevelEl = document.querySelector('#ranking-my-level')!;
+const coinBoostBadge = document.querySelector<HTMLElement>('#coin-boost-badge')!;
+const coinBoostTimerEl = document.querySelector('#coin-boost-timer')!;
+const coinBoostButton = document.querySelector<HTMLButtonElement>('#buy-coin-boost')!;
+const robotVacuumButton = document.querySelector<HTMLButtonElement>('#buy-robot-vacuum')!;
+
+function buildRewardLabel(coins: number, gems: number): string {
+  return [coins > 0 ? t('unit.coinGain', { n: coins }) : '', gems > 0 ? t('unit.gemGain', { n: gems }) : '']
+    .filter(Boolean).join(' · ');
+}
+
+function formatCountdown(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function updateCoinBoostBadge() {
+  const remaining = coinBoostExpiry - Date.now();
+  coinBoostBadge.classList.toggle('hidden', remaining <= 0);
+  if (remaining > 0) coinBoostTimerEl.textContent = formatCountdown(remaining);
+}
+
+function updateRegionTimer() {
+  regionTimerEl.textContent = formatCountdown(performance.now() - regionEnterTimestamp);
+}
 const progressEl = document.querySelector<HTMLElement>('#progress-bar')!;
 const progressText = document.querySelector('#progress-text')!;
 const radiusEl = document.querySelector<HTMLElement>('.cleaning-radius')!;
@@ -613,32 +798,31 @@ const start = document.querySelector<HTMLButtonElement>('#start')!;
 const shop = document.querySelector<HTMLElement>('#shop')!;
 const shopCoins = document.querySelector<HTMLElement>('#shop-coins')!;
 const shopGems = document.querySelector<HTMLElement>('#shop-gems')!;
+const settingsPanel = document.querySelector<HTMLElement>('#settings-panel')!;
 const regionNameEl = document.querySelector<HTMLElement>('#region-name')!;
+const regionTimerEl = document.querySelector('#region-timer')!;
 const regionCompleteCard = document.querySelector<HTMLButtonElement>('#region-complete')!;
 const regionCompleteTitle = document.querySelector<HTMLElement>('#region-complete-title')!;
 const regionCompleteAction = document.querySelector<HTMLElement>('#region-complete-action')!;
 let noticeTimer = 0;
 
+const BGM_BASE_VOLUME = 0.28;
+const BUTTON_BASE_VOLUME = 0.45;
+const REGION_COMPLETE_BASE_VOLUME = 0.75;
+const COIN_BASE_VOLUME = 0.55;
+const FOOTSTEP_BASE_VOLUME = 0.35;
+const CLEANING_BASE_VOLUME = 0.6;
+
 const bgmTracks = [0, 1, 2].map((index) => new Audio(`/assets/bgm-${index}.mp3`));
-bgmTracks.forEach((audio) => { audio.loop = true; audio.volume = 0.28; });
+bgmTracks.forEach((audio) => { audio.loop = true; });
 const buttonSound = new Audio('/assets/button-sound.mp3');
-buttonSound.volume = 0.45;
 const regionCompleteSound = new Audio('/assets/region-complete-sound.mp3');
-regionCompleteSound.volume = 0.75;
 const coinSound = new Audio('/assets/coin-sound.mp3');
-coinSound.volume = 0.55;
-const jumpLandSound = new Audio('/assets/jump-land-sound.mp3');
-jumpLandSound.volume = 0.6;
 const footstepSound = new Audio('/assets/footstep-sound.mp3');
 footstepSound.loop = true;
-footstepSound.volume = 0.35;
 function playCoinSound() {
   coinSound.currentTime = 0;
   void coinSound.play().catch(() => undefined);
-}
-function playJumpLandSound() {
-  jumpLandSound.currentTime = 0;
-  void jumpLandSound.play().catch(() => undefined);
 }
 const cleaningSounds = {
   broom: new Audio('/assets/broom-sound.mp3'),
@@ -646,8 +830,21 @@ const cleaningSounds = {
   sickle: new Audio('/assets/sickle-sound.mp3'),
   pickaxe: new Audio('/assets/pickaxe-sound.mp3'),
 };
-Object.values(cleaningSounds).forEach((audio) => { audio.loop = true; audio.volume = 0.6; });
+Object.values(cleaningSounds).forEach((audio) => { audio.loop = true; });
+const robotVacuumSound = new Audio('/assets/vacuum-sound.mp3');
+robotVacuumSound.loop = true;
 let activeCleaningSound: HTMLAudioElement | undefined;
+
+function applyAudioSettings() {
+  bgmTracks.forEach((audio) => { audio.volume = BGM_BASE_VOLUME * settings.bgmVolume; });
+  buttonSound.volume = BUTTON_BASE_VOLUME * settings.sfxVolume;
+  regionCompleteSound.volume = REGION_COMPLETE_BASE_VOLUME * settings.sfxVolume;
+  coinSound.volume = COIN_BASE_VOLUME * settings.sfxVolume;
+  footstepSound.volume = FOOTSTEP_BASE_VOLUME * settings.sfxVolume;
+  Object.values(cleaningSounds).forEach((audio) => { audio.volume = CLEANING_BASE_VOLUME * settings.sfxVolume; });
+  robotVacuumSound.volume = CLEANING_BASE_VOLUME * 0.5 * settings.sfxVolume;
+}
+applyAudioSettings();
 
 function cleaningSoundFor(toolId: ToolId) {
   if (toolId === 'vacuum') return cleaningSounds.vacuum;
@@ -679,7 +876,7 @@ async function enterFullscreen() {
     const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: 'landscape') => Promise<void> };
     await orientation.lock?.('landscape');
   } catch {
-    showNotice('기기를 직접 가로로 돌려주세요');
+    showNotice(t('notice.rotateDevice'));
   }
 }
 
@@ -702,21 +899,46 @@ function persist() {
     stats,
     missionProgress,
     achievementsClaimed: [...achievementsClaimed],
+    coinBoostExpiry,
+    robotVacuumOwned,
+    settings,
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
 }
 
+function getLevelInfo() {
+  const level = Math.floor(stats.totalCleaned / 100) + 1;
+  const progressPercent = stats.totalCleaned % 100;
+  return { level, progressPercent };
+}
+
+// Hook for the platform's (Verse8) ranking/leaderboard integration. Called whenever
+// the player's level changes so it can be reported to the platform's ranking API.
+function reportScoreToPlatform(level: number) {
+  // TODO: call Verse8's ranking SDK/API here once the integration details are available.
+}
+
+let lastReportedLevel = 0;
+
 function updateHud(reward = 0, gemReward = 0) {
-  coinsEl.textContent = String(coins);
-  gemsEl.textContent = String(gems);
-  shopCoins.textContent = String(coins);
-  shopGems.textContent = String(gems);
-  const percentage = Math.round((cleaned / total) * 100);
+  coinsEl.textContent = String(Math.floor(coins));
+  gemsEl.textContent = String(Math.floor(gems));
+  shopCoins.textContent = String(Math.floor(coins));
+  shopGems.textContent = String(Math.floor(gems));
+  const percentage = Math.floor((cleaned / total) * 100);
   progressEl.style.width = `${percentage}%`;
   progressText.textContent = `${percentage}%`;
+  const { level, progressPercent } = getLevelInfo();
+  playerLevelEl.textContent = `Lv.${level}`;
+  levelBarFill.style.width = `${progressPercent}%`;
+  rankingMyLevelEl.textContent = `Lv.${level} · ${progressPercent}%`;
+  if (level !== lastReportedLevel) {
+    lastReportedLevel = level;
+    reportScoreToPlatform(level);
+  }
   if (reward > 0 || gemReward > 0) {
     playCoinSound();
-    feedback.textContent = [reward > 0 ? `+${reward} 코인` : '', gemReward > 0 ? `+${gemReward} 💎` : ''].filter(Boolean).join(' · ');
+    feedback.textContent = buildRewardLabel(Math.floor(reward), Math.floor(gemReward));
     feedback.classList.remove('show');
     void feedback.offsetWidth;
     feedback.classList.add('show');
@@ -732,40 +954,56 @@ function achievementProgressValue(id: AchievementId): number {
   }
 }
 
-function claimMission(id: MissionId) {
+function grantMissionReward(id: MissionId) {
   const definition = missionPool.find((mission) => mission.id === id);
   if (!definition || (missionProgress[id] ?? 0) < definition.target) return;
   const rewardCoins = definition.reward.coins > 0
-    ? Math.max(1, Math.round(definition.reward.coins * (1 + upgrades.coinBonus * 0.2)))
+    ? definition.reward.coins * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier()
     : 0;
   coins += rewardCoins;
   gems += definition.reward.gems;
   missionProgress[id] = 0;
-  persist();
   updateHud(rewardCoins, definition.reward.gems);
-  refreshShop();
-  showNotice(`${definition.label} 보상 수령!`);
+  showNotice(t('notice.missionClaimed', { label: t(definition.label) }));
 }
 
-function claimAchievement(id: AchievementId) {
+function grantAchievementReward(id: AchievementId) {
   if (achievementsClaimed.has(id)) return;
   const definition = achievements[id];
   if (achievementProgressValue(id) < definition.target) return;
   const rewardCoins = definition.reward.coins > 0
-    ? Math.max(1, Math.round(definition.reward.coins * (1 + upgrades.coinBonus * 0.2)))
+    ? definition.reward.coins * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier()
     : 0;
   coins += rewardCoins;
   gems += definition.reward.gems;
   achievementsClaimed.add(id);
-  persist();
   updateHud(rewardCoins, definition.reward.gems);
-  refreshShop();
-  showNotice(`${definition.label} 달성!`);
+  showNotice(t('notice.achievementUnlocked', { label: t(definition.label) }));
 }
 
+function checkMissionsAndAchievements() {
+  for (const mission of missionPool) {
+    if ((missionProgress[mission.id] ?? 0) >= mission.target) grantMissionReward(mission.id);
+  }
+  for (const id of Object.keys(achievements) as AchievementId[]) {
+    if (!achievementsClaimed.has(id) && achievementProgressValue(id) >= achievements[id].target) grantAchievementReward(id);
+  }
+}
+
+function updateToolHintUi(toolId: ToolId) {
+  const tool = tools[toolId];
+  const radiusBonus = 1 + upgrades.radius * 0.08;
+  const ui = toolUi[toolId];
+  const uiSize = Math.round(ui.size * radiusBonus);
+  radiusEl.className = `cleaning-radius tool-${toolId}`;
+  radiusEl.style.width = `${uiSize}px`;
+  radiusEl.style.height = `${uiSize}px`;
+  radiusEl.querySelector('span')!.textContent = `${ui.icon} ${t(tool.name)}`;
+  hint.textContent = t('hint.toolTargets', { tool: t(tool.name), targets: tool.validTargets.map((kind) => t(objects[kind].label)).join(', ') });
+}
 function equipTool(toolId: ToolId) {
   if (!unlockedTools.has(toolId)) {
-    showNotice(`${tools[toolId].name} 장비가 잠겨 있습니다`);
+    showNotice(t('notice.toolLocked', { name: t(tools[toolId].name) }));
     return;
   }
   stopCleaning();
@@ -773,14 +1011,7 @@ function equipTool(toolId: ToolId) {
   const tool = tools[toolId];
   document.querySelectorAll('.slot').forEach((slot) => slot.classList.remove('active'));
   document.querySelector(`[data-slot="${tool.slot}"]`)?.classList.add('active');
-  const radiusBonus = 1 + upgrades.radius * 0.08;
-  const ui = toolUi[toolId];
-  const uiSize = Math.round(ui.size * radiusBonus);
-  radiusEl.className = `cleaning-radius tool-${toolId}`;
-  radiusEl.style.width = `${uiSize}px`;
-  radiusEl.style.height = `${uiSize}px`;
-  radiusEl.querySelector('span')!.textContent = ui.symbol;
-  hint.textContent = `${tool.name} · ${tool.validTargets.map((kind) => objects[kind].label).join(', ')} 청소 가능`;
+  updateToolHintUi(toolId);
   showToolModel(toolId);
 }
 
@@ -826,14 +1057,9 @@ function stopCleaning() {
   radiusEl.classList.remove('cleaning');
   meter.classList.remove('active');
   meterFill.style.width = '0%';
-}
-
-function jump() {
-  const tool = tools[currentToolId];
-  const movementBlocked = isCleaning && !tool.canMoveWhileCleaning;
-  if (!grounded || movementBlocked || shopOpen) return;
-  verticalVelocity = 5.25;
-  grounded = false;
+  for (const object of activeCleaningObjects) object.userData.progress = 0;
+  activeCleaningObjects.clear();
+  cleaningGraceTimer = 0;
 }
 
 function incrementMissionProgress(id: MissionId, amount = 1) {
@@ -847,6 +1073,7 @@ function enterRegion(regionId: RegionId) {
   regionEnterTimestamp = performance.now();
   currentRegionId = regionId;
   regionCompleted = false;
+  robotVacuumTarget = null;
   let state = regionProgress[regionId];
   if (!state) {
     const remaining = freshRegionCounts(regionId);
@@ -854,11 +1081,10 @@ function enterRegion(regionId: RegionId) {
     regionProgress[regionId] = state;
   }
   populateRegion(regionId, state);
-  regionNameEl.textContent = regions[regionId].name;
+  applyRegionTheme(regionId);
+  regionNameEl.textContent = t(regions[regionId].name);
   regionCompleteCard.classList.add('hidden');
   camera.position.set(0, standingHeight, 8);
-  verticalVelocity = 0;
-  grounded = true;
   updateHud();
   playRegionBgm();
   persist();
@@ -875,26 +1101,27 @@ function completeRegion() {
 
   const completionReward = regionCompletionRewards[currentRegionId];
   const rewardCoins = completionReward.coins > 0
-    ? Math.max(1, Math.round(completionReward.coins * (1 + upgrades.coinBonus * 0.2)))
+    ? completionReward.coins * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier()
     : 0;
   coins += rewardCoins;
   gems += completionReward.gems;
-  stats.coinsEarned += rewardCoins;
+  stats.coinsEarned += Math.floor(rewardCoins);
   stats.regionsCleared += 1;
   incrementMissionProgress('regionClear');
   if (performance.now() - regionEnterTimestamp <= 5 * 60 * 1000) incrementMissionProgress('fastClear5min');
-  const rewardLabel = [rewardCoins > 0 ? `+${rewardCoins} 코인` : '', completionReward.gems > 0 ? `+${completionReward.gems} 💎` : '']
-    .filter(Boolean).join(' · ');
+  const rewardLabel = buildRewardLabel(rewardCoins, completionReward.gems);
+  const rewardSuffix = rewardLabel ? ` (${rewardLabel})` : '';
 
   if (currentRegionId < 3) {
     unlockedRegion = Math.max(unlockedRegion, currentRegionId + 1) as RegionId;
-    regionCompleteTitle.textContent = `${regions[currentRegionId].name} 청소 완료!${rewardLabel ? ` (${rewardLabel})` : ''}`;
-    regionCompleteAction.textContent = `${regions[(currentRegionId + 1) as RegionId].name}(으)로 이동`;
+    regionCompleteTitle.textContent = t('region.completeTitle', { region: t(regions[currentRegionId].name), reward: rewardSuffix });
+    regionCompleteAction.textContent = t('region.moveTo', { region: t(regions[(currentRegionId + 1) as RegionId].name) });
   } else {
-    regionCompleteTitle.textContent = `모든 지역 청소 완료!${rewardLabel ? ` (${rewardLabel})` : ''}`;
-    regionCompleteAction.textContent = '앞 마당부터 다시 플레이';
+    regionCompleteTitle.textContent = t('region.allCompleteTitle', { reward: rewardSuffix });
+    regionCompleteAction.textContent = t('region.replayFrom', { region: t(regions[1].name) });
   }
   updateHud(rewardCoins, completionReward.gems);
+  checkMissionsAndAchievements();
   persist();
   regionCompleteCard.classList.remove('hidden');
   document.exitPointerLock?.();
@@ -904,7 +1131,7 @@ function removeObject(object: Cleanable) {
   object.userData.cleaned = true;
   const definition = objects[object.userData.kind];
   const reward = definition.reward > 0
-    ? Math.max(1, Math.round(definition.reward * (1 + upgrades.coinBonus * 0.2)))
+    ? definition.reward * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier()
     : 0;
   const gemReward = definition.gemReward ?? 0;
   coins += reward;
@@ -913,13 +1140,15 @@ function removeObject(object: Cleanable) {
   if (state) state.remaining[object.userData.kind] = Math.max(0, (state.remaining[object.userData.kind] ?? 0) - 1);
   cleaned += 1;
   stats.totalCleaned += 1;
-  stats.coinsEarned += reward;
+  stats.coinsEarned += Math.floor(reward);
   if (object.userData.kind === 'leaf') stats.leafCleaned += 1;
   if (object.userData.kind === 'can') stats.canCleaned += 1;
   if (object.userData.kind === 'leaf') incrementMissionProgress('leaf100');
   if (object.userData.kind === 'can') incrementMissionProgress('can30');
   updateHud(reward, gemReward);
+  checkMissionsAndAchievements();
   persist();
+  if (settings.vibration && usesMobileControls()) navigator.vibrate?.(40);
   if (cleaned >= total) completeRegion();
   const started = performance.now();
   const initialY = object.position.y;
@@ -938,6 +1167,10 @@ function updateCleaning(delta: number) {
   const tool = tools[currentToolId];
   const valid = objectsInRadius().filter((object) => tool.validTargets.includes(object.userData.kind));
   if (valid.length === 0) {
+    cleaningGraceTimer += delta;
+    if (cleaningGraceTimer < CLEANING_GRACE_PERIOD) return;
+    for (const object of activeCleaningObjects) object.userData.progress = 0;
+    activeCleaningObjects.clear();
     isCleaning = false;
     setCleaningAudio(false);
     radiusEl.classList.remove('cleaning');
@@ -945,10 +1178,16 @@ function updateCleaning(delta: number) {
     meterFill.style.width = '0%';
     return;
   }
+  cleaningGraceTimer = 0;
   isCleaning = true;
   setCleaningAudio(true);
   radiusEl.classList.add('cleaning');
   meter.classList.add('active');
+  const currentSet = new Set(valid);
+  for (const object of activeCleaningObjects) {
+    if (!currentSet.has(object)) object.userData.progress = 0;
+  }
+  activeCleaningObjects = currentSet;
   let displayedProgress = 0;
   let displayedLabel = '';
   for (const object of valid) {
@@ -957,12 +1196,58 @@ function updateCleaning(delta: number) {
     const progress = object.userData.progress / definition.cleanTime;
     if (progress > displayedProgress) {
       displayedProgress = progress;
-      displayedLabel = `${definition.label} 청소 중`;
+      displayedLabel = t('label.cleaningItem', { label: t(definition.label) });
     }
-    if (progress >= 1) removeObject(object);
+    if (progress >= 1) {
+      activeCleaningObjects.delete(object);
+      removeObject(object);
+    }
   }
   meterFill.style.width = `${Math.min(displayedProgress, 1) * 100}%`;
   meterLabel.textContent = displayedLabel;
+}
+
+function stopRobotVacuumSound() {
+  if (!robotVacuumSound.paused) {
+    robotVacuumSound.pause();
+    robotVacuumSound.currentTime = 0;
+  }
+}
+function updateRobotVacuum(delta: number) {
+  if (!robotVacuumOwned || !gameStarted || shopOpen) { stopRobotVacuumSound(); return; }
+  if (robotVacuumTarget && (robotVacuumTarget.userData.cleaned || !robotVacuumTarget.visible)) {
+    robotVacuumTarget = null;
+  }
+  if (!robotVacuumTarget) {
+    let nearestDistSq = Infinity;
+    for (const object of cleanables) {
+      if (object.userData.cleaned || !object.visible) continue;
+      const distSq = object.position.distanceToSquared(robotVacuumPosition);
+      if (distSq < nearestDistSq) {
+        nearestDistSq = distSq;
+        robotVacuumTarget = object;
+      }
+    }
+  }
+  if (!robotVacuumTarget) { stopRobotVacuumSound(); return; }
+  const dx = robotVacuumTarget.position.x - robotVacuumPosition.x;
+  const dz = robotVacuumTarget.position.z - robotVacuumPosition.z;
+  const distance = Math.hypot(dx, dz);
+  if (distance > ROBOT_VACUUM_ARRIVAL_RADIUS) {
+    // Still travelling toward the target; drive straight at it (no obstacle avoidance/pathfinding).
+    stopRobotVacuumSound();
+    robotVacuumPosition.x += (dx / distance) * ROBOT_VACUUM_SPEED * delta;
+    robotVacuumPosition.z += (dz / distance) * ROBOT_VACUUM_SPEED * delta;
+    return;
+  }
+  if (robotVacuumSound.paused) void robotVacuumSound.play().catch(() => undefined);
+  const definition = objects[robotVacuumTarget.userData.kind];
+  robotVacuumTarget.userData.progress += delta * (definition.cleanTime / 5);
+  if (robotVacuumTarget.userData.progress >= definition.cleanTime) {
+    const cleanedObject = robotVacuumTarget;
+    robotVacuumTarget = null;
+    removeObject(cleanedObject);
+  }
 }
 
 start.addEventListener('click', () => {
@@ -995,8 +1280,8 @@ document.addEventListener('pointerlockchange', () => {
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement !== canvas) return;
-  yaw -= event.movementX * 0.0022;
-  pitch -= event.movementY * 0.0018;
+  yaw -= event.movementX * 0.0022 * settings.sensitivity;
+  pitch -= event.movementY * 0.0018 * settings.sensitivity;
   pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
 });
 
@@ -1006,12 +1291,13 @@ window.addEventListener('keydown', (event) => {
     toggleShop();
     return;
   }
-  if (shopOpen) return;
-  keys.add(event.code);
-  if (event.code === 'Space' && !event.repeat) {
+  if (event.code === 'KeyT') {
     event.preventDefault();
-    jump();
+    toggleSettings();
+    return;
   }
+  if (shopOpen || settingsOpen) return;
+  keys.add(event.code);
   if (event.code.startsWith('Digit')) {
     const slot = Number(event.code.slice(5));
     const toolId = toolOrder.find((id) => tools[id].slot === slot);
@@ -1028,11 +1314,6 @@ document.querySelectorAll<HTMLElement>('.slot').forEach((slot) => {
 });
 
 const cleanButton = document.querySelector<HTMLElement>('#clean-button')!;
-const jumpButton = document.querySelector<HTMLElement>('#jump-button')!;
-jumpButton.addEventListener('pointerdown', (event) => {
-  event.preventDefault();
-  jump();
-});
 cleanButton.addEventListener('pointerdown', (event) => {
   event.preventDefault();
   cleanButton.setPointerCapture(event.pointerId);
@@ -1055,7 +1336,7 @@ function refreshShop() {
     const id = button.dataset.tool as ToolId;
     const owned = unlockedTools.has(id);
     button.classList.toggle('owned', owned);
-    button.textContent = owned ? '보유 중' : `● ${toolPrices[id] ?? 0}`;
+    button.textContent = owned ? t('shop.owned') : `● ${toolPrices[id] ?? 0}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => {
     const id = button.dataset.upgrade as UpgradeId;
@@ -1066,7 +1347,7 @@ function refreshShop() {
     const id = button.dataset.tool as ToolId;
     const owned = unlockedTools.has(id);
     button.classList.toggle('owned', owned);
-    button.textContent = owned ? '보유 중' : `💎 ${premiumToolPrices[id] ?? 0}`;
+    button.textContent = owned ? t('shop.owned') : `💎 ${premiumToolPrices[id] ?? 0}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => {
     const id = Number(button.dataset.region) as RegionId;
@@ -1074,22 +1355,20 @@ function refreshShop() {
     const current = id === currentRegionId;
     const state = regionProgress[id];
     const remaining = state ? Object.values(state.remaining).reduce((sum, count) => sum + (count ?? 0), 0) : undefined;
-    const percentage = state && state.total > 0 ? Math.round(((state.total - (remaining ?? state.total)) / state.total) * 100) : 0;
+    const percentage = state && state.total > 0 ? Math.floor(((state.total - (remaining ?? state.total)) / state.total) * 100) : 0;
     button.disabled = locked || current;
     button.classList.toggle('owned', current);
-    button.textContent = locked ? '잠김' : current ? '현재 지역' : '이동';
+    button.textContent = locked ? t('shop.locked') : current ? t('shop.currentRegion') : t('shop.move');
     const label = document.querySelector<HTMLElement>(`[data-region-progress="${id}"]`)!;
-    label.textContent = locked ? '이전 지역 완료 시 해금' : `진행도 ${percentage}%`;
+    label.textContent = locked ? t('region.lockedHint') : t('region.progressLabel', { pct: percentage });
   });
   document.querySelectorAll<HTMLButtonElement>('.claim-mission').forEach((button) => {
     const id = button.dataset.mission as MissionId;
     const definition = missionPool.find((mission) => mission.id === id)!;
     const progress = missionProgress[id] ?? 0;
     document.querySelector<HTMLElement>(`[data-mission-progress="${id}"]`)!.textContent = `${progress} / ${definition.target}`;
-    const ready = progress >= definition.target;
-    button.disabled = !ready;
-    button.classList.toggle('claimed', ready);
-    button.textContent = ready ? '받기' : `${progress}/${definition.target}`;
+    button.disabled = true;
+    button.textContent = `${progress}/${definition.target}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.claim-achievement').forEach((button) => {
     const id = button.dataset.achievement as AchievementId;
@@ -1097,11 +1376,15 @@ function refreshShop() {
     const claimed = achievementsClaimed.has(id);
     const progress = Math.min(achievementProgressValue(id), definition.target);
     document.querySelector<HTMLElement>(`[data-achievement-progress="${id}"]`)!.textContent = `${progress} / ${definition.target}`;
-    const ready = !claimed && progress >= definition.target;
-    button.disabled = claimed || !ready;
+    button.disabled = true;
     button.classList.toggle('claimed', claimed);
-    button.textContent = claimed ? '완료' : ready ? '받기' : `${progress}/${definition.target}`;
+    button.textContent = claimed ? t('shop.claimed') : `${progress}/${definition.target}`;
   });
+  const boostRemaining = coinBoostExpiry - Date.now();
+  coinBoostButton.textContent = boostRemaining > 0 ? `⏱ ${formatCountdown(boostRemaining)}` : '💎 30';
+  robotVacuumButton.textContent = robotVacuumOwned ? t('shop.owned') : '💎 200';
+  robotVacuumButton.disabled = robotVacuumOwned;
+  robotVacuumButton.classList.toggle('owned', robotVacuumOwned);
 }
 function toggleShop(force?: boolean) {
   shopOpen = force ?? !shopOpen;
@@ -1109,9 +1392,23 @@ function toggleShop(force?: boolean) {
   stopCleaning();
   keys.clear();
   if (shopOpen) {
+    if (settingsOpen) toggleSettings(false);
     document.exitPointerLock?.();
     refreshShop();
-  } else if (gameStarted) {
+  } else if (gameStarted && !settingsOpen) {
+    start.classList.add('hidden');
+    if (!usesMobileControls()) canvas.requestPointerLock?.();
+  }
+}
+function toggleSettings(force?: boolean) {
+  settingsOpen = force ?? !settingsOpen;
+  settingsPanel.classList.toggle('open', settingsOpen);
+  stopCleaning();
+  keys.clear();
+  if (settingsOpen) {
+    if (shopOpen) toggleShop(false);
+    document.exitPointerLock?.();
+  } else if (gameStarted && !shopOpen) {
     start.classList.add('hidden');
     if (!usesMobileControls()) canvas.requestPointerLock?.();
   }
@@ -1120,6 +1417,56 @@ document.querySelector('#shop-button')!.addEventListener('click', () => toggleSh
 document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
 document.querySelector('#rotate-fullscreen')!.addEventListener('click', enterFullscreen);
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
+document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
+document.querySelector('#settings-close')!.addEventListener('click', () => toggleSettings(false));
+
+const bgmVolumeSlider = document.querySelector<HTMLInputElement>('#bgm-volume')!;
+const bgmVolumeValueEl = document.querySelector<HTMLElement>('#bgm-volume-value')!;
+const sfxVolumeSlider = document.querySelector<HTMLInputElement>('#sfx-volume')!;
+const sfxVolumeValueEl = document.querySelector<HTMLElement>('#sfx-volume-value')!;
+bgmVolumeSlider.value = String(Math.round(settings.bgmVolume * 100));
+bgmVolumeValueEl.textContent = `${Math.round(settings.bgmVolume * 100)}%`;
+sfxVolumeSlider.value = String(Math.round(settings.sfxVolume * 100));
+sfxVolumeValueEl.textContent = `${Math.round(settings.sfxVolume * 100)}%`;
+bgmVolumeSlider.addEventListener('input', () => {
+  settings.bgmVolume = Number(bgmVolumeSlider.value) / 100;
+  bgmVolumeValueEl.textContent = `${bgmVolumeSlider.value}%`;
+  applyAudioSettings();
+  persist();
+});
+sfxVolumeSlider.addEventListener('input', () => {
+  settings.sfxVolume = Number(sfxVolumeSlider.value) / 100;
+  sfxVolumeValueEl.textContent = `${sfxVolumeSlider.value}%`;
+  applyAudioSettings();
+  persist();
+});
+
+const sensitivitySlider = document.querySelector<HTMLInputElement>('#sensitivity')!;
+const sensitivityValueEl = document.querySelector<HTMLElement>('#sensitivity-value')!;
+sensitivitySlider.value = String(Math.round(settings.sensitivity * 100));
+sensitivityValueEl.textContent = `${Math.round(settings.sensitivity * 100)}%`;
+sensitivitySlider.addEventListener('input', () => {
+  settings.sensitivity = Number(sensitivitySlider.value) / 100;
+  sensitivityValueEl.textContent = `${sensitivitySlider.value}%`;
+  persist();
+});
+
+const vibrationToggle = document.querySelector<HTMLInputElement>('#vibration-toggle')!;
+vibrationToggle.checked = settings.vibration;
+vibrationToggle.addEventListener('change', () => {
+  settings.vibration = vibrationToggle.checked;
+  persist();
+});
+
+const langOptions = document.querySelectorAll<HTMLButtonElement>('.lang-option');
+langOptions.forEach((button) => button.classList.toggle('selected', button.dataset.lang === settings.language));
+langOptions.forEach((button) => button.addEventListener('click', () => {
+  settings.language = button.dataset.lang as 'ko' | 'en';
+  langOptions.forEach((item) => item.classList.toggle('selected', item === button));
+  setLocale(settings.language);
+  applyLocale();
+  persist();
+}));
 document.querySelectorAll<HTMLButtonElement>('[data-shop-tab]').forEach((button) => button.addEventListener('click', () => {
   document.querySelectorAll('[data-shop-tab]').forEach((item) => item.classList.toggle('selected', item === button));
   document.querySelectorAll<HTMLElement>('[data-shop-content]').forEach((content) => content.classList.toggle('selected', content.dataset.shopContent === button.dataset.shopTab));
@@ -1128,41 +1475,56 @@ document.querySelectorAll<HTMLButtonElement>('.buy-tool').forEach((button) => bu
   const id = button.dataset.tool as ToolId;
   if (unlockedTools.has(id)) return;
   const price = toolPrices[id] ?? Infinity;
-  if (coins < price) { showNotice('코인이 부족합니다'); return; }
-  coins -= price; unlockedTools.add(id); persist(); refreshShop(); showNotice(`${tools[id].name} 해금!`);
+  if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
+  coins -= price; unlockedTools.add(id); persist(); refreshShop(); showNotice(t('notice.toolUnlocked', { name: t(tools[id].name) }));
 }));
 document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.upgrade as UpgradeId;
   if (upgrades[id] >= 10) return;
   const price = upgradePrice(id);
-  if (coins < price) { showNotice('코인이 부족합니다'); return; }
-  coins -= price; upgrades[id] += 1; persist(); refreshShop(); equipTool(currentToolId); showNotice('업그레이드 완료!');
+  if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
+  coins -= price; upgrades[id] += 1; persist(); refreshShop(); equipTool(currentToolId); showNotice(t('notice.upgradeComplete'));
 }));
 document.querySelectorAll<HTMLButtonElement>('.buy-premium-tool').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.tool as ToolId;
   if (unlockedTools.has(id)) return;
   const price = premiumToolPrices[id] ?? Infinity;
-  if (gems < price) { showNotice('프리미엄 재화가 부족합니다'); return; }
+  if (gems < price) { showNotice(t('notice.notEnoughGems')); return; }
   gems -= price;
   unlockedTools.add(id);
   persist();
   refreshShop();
   equipTool(id);
-  showNotice(`${tools[id].name} 해금!`);
+  showNotice(t('notice.toolUnlocked', { name: t(tools[id].name) }));
 }));
 document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => button.addEventListener('click', () => {
   const id = Number(button.dataset.region) as RegionId;
   if (id > unlockedRegion || id === currentRegionId) return;
   enterRegion(id);
   toggleShop(false);
-  showNotice(`${regions[id].name}(으)로 이동`);
+  showNotice(t('region.moveTo', { region: t(regions[id].name) }));
 }));
-document.querySelectorAll<HTMLButtonElement>('.claim-mission').forEach((button) => button.addEventListener('click', () => {
-  claimMission(button.dataset.mission as MissionId);
-}));
-document.querySelectorAll<HTMLButtonElement>('.claim-achievement').forEach((button) => button.addEventListener('click', () => {
-  claimAchievement(button.dataset.achievement as AchievementId);
-}));
+coinBoostButton.addEventListener('click', () => {
+  const price = 30;
+  if (gems < price) { showNotice(t('notice.notEnoughGems')); return; }
+  gems -= price;
+  coinBoostExpiry = Math.max(coinBoostExpiry, Date.now()) + 30 * 60 * 1000;
+  persist();
+  refreshShop();
+  updateCoinBoostBadge();
+  showNotice(t('notice.coinBoostActivated'));
+});
+robotVacuumButton.addEventListener('click', () => {
+  if (robotVacuumOwned) return;
+  const price = 200;
+  if (gems < price) { showNotice(t('notice.notEnoughGems')); return; }
+  gems -= price;
+  robotVacuumOwned = true;
+  loadRobotVacuumModel();
+  persist();
+  refreshShop();
+  showNotice(t('notice.robotVacuumAcquired'));
+});
 
 let joystickPointer: number | undefined;
 let joystickX = 0;
@@ -1195,8 +1557,8 @@ canvas.addEventListener('touchstart', (event) => {
 }, { passive: true });
 canvas.addEventListener('touchmove', (event) => {
   const touch = event.touches[0];
-  yaw -= (touch.clientX - lastTouchX) * 0.006;
-  pitch -= (touch.clientY - lastTouchY) * 0.004;
+  yaw -= (touch.clientX - lastTouchX) * 0.006 * settings.sensitivity;
+  pitch -= (touch.clientY - lastTouchY) * 0.004 * settings.sensitivity;
   pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
   lastTouchX = touch.clientX;
   lastTouchY = touch.clientY;
@@ -1219,6 +1581,10 @@ function animate() {
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
   updateCleaning(delta);
+  updateRobotVacuum(delta);
+  updateRobotVacuumVisual();
+  updateCoinBoostBadge();
+  updateRegionTimer();
 
   const tool = tools[currentToolId];
   const movementBlocked = shopOpen || (isCleaning && !tool.canMoveWhileCleaning);
@@ -1240,17 +1606,7 @@ function animate() {
       camera.position.z = previousZ;
     }
   }
-  if (!grounded) {
-    verticalVelocity -= 13.5 * delta;
-    camera.position.y += verticalVelocity * delta;
-    if (camera.position.y <= standingHeight) {
-      camera.position.y = standingHeight;
-      verticalVelocity = 0;
-      grounded = true;
-      playJumpLandSound();
-    }
-  }
-  if (isMoving && grounded) {
+  if (isMoving) {
     if (footstepSound.paused) void footstepSound.play().catch(() => undefined);
   } else if (!footstepSound.paused) {
     footstepSound.pause();
@@ -1272,5 +1628,18 @@ function animate() {
   }
   renderer.render(scene, camera);
 }
+function applyLocale() {
+  document.documentElement.lang = getLocale();
+  document.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n!);
+  });
+  document.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria!));
+  });
+  regionNameEl.textContent = t(regions[currentRegionId].name);
+  updateToolHintUi(currentToolId);
+  refreshShop();
+}
+
 animate();
-refreshShop();
+applyLocale();
