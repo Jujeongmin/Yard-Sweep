@@ -7,13 +7,27 @@ export class Server {
     return $sender.account;
   }
 
+  async setNickname(nickname: string): Promise<string> {
+    if (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 15) {
+      throw new Error('Nickname must be between 1 and 15 characters.');
+    }
+    await $global.updateMyState({ nickname: nickname.trim() });
+    return nickname.trim();
+  }
+
+  async getMyNickname(): Promise<string | null> {
+    const state = await $global.getMyState();
+    return state.nickname || null;
+  }
+
   async updatePlayerStats(
-    nickname: string,
     level: number,
     exp: number,
   ): Promise<{ __id: string; account: string; nickname: string; level: number; exp: number }> {
-    if (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 15) {
-      throw new Error('Nickname must be between 1 and 15 characters.');
+    const myState = await $global.getMyState();
+    const nickname = myState.nickname;
+    if (!nickname) {
+      throw new Error('Please set your nickname first.');
     }
     if (typeof level !== 'number' || level < 1) {
       throw new Error('Level must be at least 1.');

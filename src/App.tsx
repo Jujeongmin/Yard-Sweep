@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useGameServer } from '@agent8/gameserver';
+import NicknameSetting from './NicknameSetting';
 import Leaderboard from './Leaderboard';
 import StatsPanel from './StatsPanel';
 
@@ -17,6 +18,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-6">
+      <NicknameSetting />
       <StatsPanel />
 
       <button

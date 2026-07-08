@@ -3,7 +3,6 @@ import { useGameServer } from '@agent8/gameserver';
 
 export default function StatsPanel() {
   const { connected, server } = useGameServer();
-  const [nickname, setNickname] = useState('');
   const [level, setLevel] = useState(1);
   const [exp, setExp] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -11,19 +10,11 @@ export default function StatsPanel() {
 
   const handleSubmit = async () => {
     if (!connected) return;
-    if (!nickname.trim()) {
-      setMessage('Please enter a nickname.');
-      return;
-    }
 
     setSubmitting(true);
     setMessage('');
     try {
-      await server.remoteFunction('updatePlayerStats', [
-        nickname.trim(),
-        level,
-        exp,
-      ]);
+      await server.remoteFunction('updatePlayerStats', [level, exp]);
       setMessage('Stats updated!');
     } catch (e: any) {
       setMessage(e.message || 'Failed to update stats.');
@@ -37,18 +28,6 @@ export default function StatsPanel() {
       <h2 className="text-lg font-bold mb-4">Update Stats</h2>
 
       <div className="space-y-3">
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">Nickname</label>
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="Enter nickname"
-            maxLength={15}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
         <div>
           <label className="block text-sm text-gray-400 mb-1">Level</label>
           <input
