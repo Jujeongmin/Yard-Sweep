@@ -391,27 +391,24 @@ button { font: inherit; }
 }
 .buy-vx-gem.disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
-/* ── Desktop fullscreen prompt ── */
-.fullscreen-prompt {
-  position: fixed; z-index: 11; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  padding: clamp(16px, 3vw, 28px) clamp(24px, 4vw, 40px);
-  border: clamp(2px, 0.4vw, 3px) solid #fff176; border-radius: var(--radius-lg);
-  background: rgba(20, 45, 60, 0.95); color: white; text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.5vw, 14px);
-  user-select: none; -webkit-user-select: none;
+/* ── Desktop fullscreen banner ── */
+.fullscreen-banner {
+  position: fixed; z-index: 11; top: 0; left: 0; right: 0;
+  padding: clamp(6px, 1vw, 10px) clamp(12px, 2vw, 20px);
+  background: rgba(20, 45, 60, 0.72); color: white;
+  display: flex; align-items: center; justify-content: center; gap: clamp(8px, 1.5vw, 14px);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  font-size: var(--fs-sm);
 }
-.fullscreen-prompt.hidden { display: none; }
-.fullscreen-prompt span { font-size: clamp(32px, 5vw, 48px); }
-.fullscreen-prompt strong { font-family: Jua, sans-serif; font-size: var(--fs-lg); }
-.fullscreen-prompt button {
-  padding: clamp(8px, 1.5vw, 12px) clamp(20px, 3vw, 32px);
+.fullscreen-banner.hidden { display: none; }
+.fullscreen-banner button {
+  padding: clamp(4px, 0.8vw, 8px) clamp(12px, 2vw, 20px);
   border: 0; border-radius: var(--radius-sm); background: #3ca24a; color: white;
-  font-size: var(--fs-md); font-weight: 800; cursor: pointer;
+  font-size: var(--fs-xs); font-weight: 800; cursor: pointer;
 }
-.fullscreen-prompt button:hover { background: #4ec25e; }
 
 @media (pointer: coarse) {
-  .fullscreen-prompt { display: none; }
+  .fullscreen-banner { display: none; }
 }
 
 /* ── Rotate screen ── */

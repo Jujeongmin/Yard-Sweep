@@ -51,6 +51,7 @@ const ko: Dict = {
   'hint.initial': '빗자루로 낙엽과 캔을 청소하세요',
   'hint.toolTargets': '{tool} · {targets} 청소 가능',
   'hint.fullscreen': '전체화면으로 플레이하세요',
+  'hint.fullscreenBanner': '전체화면 플레이를 권장드립니다',
   'hint.enterFullscreen': '전체화면',
 
   'controls.keys': 'WASD',
@@ -227,6 +228,7 @@ const en: Dict = {
   'hint.initial': 'Use the broom to clean leaves and cans',
   'hint.toolTargets': '{tool} · Can clean {targets}',
   'hint.fullscreen': 'Play in fullscreen',
+  'hint.fullscreenBanner': 'Fullscreen mode is recommended',
   'hint.enterFullscreen': 'Enter Fullscreen',
 
   'controls.keys': 'WASD',
