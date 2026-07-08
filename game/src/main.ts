@@ -805,6 +805,11 @@ const regionTimerEl = document.querySelector('#region-timer')!;
 const regionCompleteCard = document.querySelector<HTMLButtonElement>('#region-complete')!;
 const regionCompleteTitle = document.querySelector<HTMLElement>('#region-complete-title')!;
 const regionCompleteAction = document.querySelector<HTMLElement>('#region-complete-action')!;
+const regionAdDoubleBtn = document.querySelector<HTMLButtonElement>('#region-ad-double')!;
+const regionAdStatus = document.querySelector<HTMLElement>('#region-ad-status')!;
+let pendingAdRewardCoins = 0;
+let pendingAdRewardGems = 0;
+let pendingAdDoubled = false;
 let noticeTimer = 0;
 
 const BGM_BASE_VOLUME = 0.28;
@@ -1113,6 +1118,10 @@ function completeRegion() {
   const rewardLabel = buildRewardLabel(rewardCoins, completionReward.gems);
   const rewardSuffix = rewardLabel ? ` (${rewardLabel})` : '';
 
+  pendingAdRewardCoins = rewardCoins;
+  pendingAdRewardGems = completionReward.gems;
+  pendingAdDoubled = false;
+
   if (currentRegionId < 3) {
     unlockedRegion = Math.max(unlockedRegion, currentRegionId + 1) as RegionId;
     regionCompleteTitle.textContent = t('region.completeTitle', { region: t(regions[currentRegionId].name), reward: rewardSuffix });
@@ -1125,6 +1134,8 @@ function completeRegion() {
   checkMissionsAndAchievements();
   persist();
   regionCompleteCard.classList.remove('hidden');
+  regionAdDoubleBtn.classList.remove('hidden');
+  regionAdStatus.classList.add('hidden');
   document.exitPointerLock?.();
 }
 
@@ -1261,6 +1272,26 @@ regionCompleteCard.addEventListener('click', () => {
   const nextRegion = currentRegionId < 3 ? (currentRegionId + 1) as RegionId : 1;
   enterRegion(nextRegion);
   if (!usesMobileControls()) canvas.requestPointerLock?.();
+});
+
+regionAdDoubleBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (pendingAdDoubled) return;
+  pendingAdDoubled = true;
+  coins += pendingAdRewardCoins;
+  gems += pendingAdRewardGems;
+  stats.coinsEarned += Math.floor(pendingAdRewardCoins);
+  updateHud(pendingAdRewardCoins, pendingAdRewardGems);
+  persist();
+  regionAdDoubleBtn.classList.add('hidden');
+  regionAdStatus.classList.remove('hidden');
+  regionAdStatus.textContent = `2x reward applied! (+${Math.floor(pendingAdRewardCoins)} coins, +${pendingAdRewardGems} gems)`;
+});
+
+document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    showNotice('VX Shop will be available after deployment.');
+  });
 });
 document.addEventListener('click', (event) => {
   if (!(event.target as HTMLElement).closest('button')) return;

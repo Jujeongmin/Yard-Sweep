@@ -100,6 +100,13 @@ const ko: Dict = {
   'premium.robotVacuum.title': '로봇청소기',
   'premium.robotVacuum.desc': '보유 시 주변 오브젝트를 자동으로 청소 (5초/개)',
 
+  'vxshop.gemPack1.title': '보석 100개',
+  'vxshop.gemPack1.desc': 'VX로 구매',
+  'vxshop.gemPack2.title': '보석 500개',
+  'vxshop.gemPack2.desc': 'VX로 구매',
+  'vxshop.gemPack3.title': '보석 1200개',
+  'vxshop.gemPack3.desc': 'VX로 구매',
+
   'region.lockedHint': '이전 지역 완료 시 해금',
   'region.progressLabel': '진행도 {pct}%',
   'region.completeTitle': '{region} 청소 완료!{reward}',
@@ -237,6 +244,13 @@ const en: Dict = {
   'premium.coinBoost.desc': '+100% coins for 30 minutes',
   'premium.robotVacuum.title': 'Robot Vacuum',
   'premium.robotVacuum.desc': 'Autonomously cleans nearby objects while owned (5s/item)',
+
+  'vxshop.gemPack1.title': '100 Gems',
+  'vxshop.gemPack1.desc': 'Buy with VX',
+  'vxshop.gemPack2.title': '500 Gems',
+  'vxshop.gemPack2.desc': 'Buy with VX',
+  'vxshop.gemPack3.title': '1200 Gems',
+  'vxshop.gemPack3.desc': 'Buy with VX',
 
   'region.lockedHint': 'Unlocks after the previous region',
   'region.progressLabel': '{pct}% complete',

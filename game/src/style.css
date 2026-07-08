@@ -103,6 +103,12 @@ button { font: inherit; }
 .reset-btn { background: #e85d5d; color: white; box-shadow: 0 3px 0 #a33; }
 .reset-btn-confirm { background: #ff2020; animation: pulse-reset 0.6s infinite; }
 @keyframes pulse-reset { 50% { transform: scale(1.03); } }
+.region-ad-btn { display: block; width: 100%; margin-top: 14px; padding: 10px; border: 2px solid #ffd43b; border-radius: 14px; background: linear-gradient(135deg, #f0a030, #e07020); color: white; font-size: 14px; font-weight: 800; cursor: pointer; box-shadow: 0 3px 0 #9b4a10; }
+.region-ad-btn:hover { background: linear-gradient(135deg, #ffb840, #f08030); }
+.region-ad-btn.hidden, .region-ad-status.hidden { display: none; }
+.region-ad-status { margin-top: 6px; font-size: 11px; color: #ffe89c; text-align: center; }
+.buy-vx-gem { min-width: 60px; padding: 8px; border: 0; border-radius: 12px; color: white; background: linear-gradient(135deg, #7c5ce7, #5a3fc0); box-shadow: 0 3px 0 #3c2890; font-size: 11px; cursor: pointer; }
+.buy-vx-gem.disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 .settings-note { margin:8px 0 0; color:#74827d; font-size:11px; }
 .settings-toggle { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
 .mobile-only-setting { display:none; }
