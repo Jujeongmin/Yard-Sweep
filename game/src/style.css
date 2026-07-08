@@ -127,7 +127,7 @@ button { font: inherit; }
   pointer-events: auto; cursor: pointer;
 }
 #shop-button { background:#e19a25; }
-#fullscreen-button { display:none; background:#3286bd; }
+#fullscreen-button { display:block; background:#3286bd; }
 .icon-button { display: flex; flex-direction: column; align-items: center; gap: clamp(2px,0.5vw,4px); }
 .hud-actions-start { margin-left: auto; }
 .button-key {
@@ -407,7 +407,6 @@ button { font: inherit; }
   .brand { display: block; }
   .controls { display: block; }
   .button-key { display: block; }
-  #fullscreen-button { display: none; }
   #mobile-controls { display: none; }
   .shop-content.selected { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-sm); }
   .shop-content.list.selected { grid-template-columns: 1fr; }

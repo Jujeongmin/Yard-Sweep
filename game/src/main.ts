@@ -1819,5 +1819,4 @@ applyLocale();
 
 if (isTouchDevice()) {
   startGame();
-  (document.querySelector('#fullscreen-button') as HTMLElement).style.display = 'block';
 }
