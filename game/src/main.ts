@@ -1756,6 +1756,7 @@ canvas.addEventListener('touchend', (event) => {
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
+  if (isTouchDevice() && innerWidth < innerHeight) return;
   const aspect = innerWidth / innerHeight;
   const baseFov = 72 * Math.PI / 180;
   const baseAspect = 16 / 9;
