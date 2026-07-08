@@ -676,8 +676,6 @@ let coins = saveData.coins;
 let gems = saveData.gems;
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
-// Prototype testing: keep all regions selectable regardless of saved progress.
-unlockedRegion = 3;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
@@ -736,8 +734,6 @@ let settingsOpen = false;
 let gameStarted = false;
 let currentToolId: ToolId = 'basicBroom';
 const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
-// Prototype testing: keep the six standard tools selectable; premium tools still require gems.
-toolOrder.filter((toolId) => tools[toolId].slot <= 6).forEach((toolId) => unlockedTools.add(toolId));
 const upgrades = saveData.upgrades;
 const keys = new Set<string>();
 const clock = new THREE.Clock();
