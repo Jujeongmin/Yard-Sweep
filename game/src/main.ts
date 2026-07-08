@@ -759,7 +759,7 @@ const coinsEl = document.querySelector('#coins')!;
 const gemsEl = document.querySelector('#gems')!;
 const playerLevelEl = document.querySelector('#player-level')!;
 const levelBarFill = document.querySelector<HTMLElement>('#level-bar-fill')!;
-const rankingMyLevelEl = document.querySelector('#ranking-my-level')!;
+const rankingMyLevelEl = document.querySelector('#ranking-my-rank')!;
 const coinBoostBadge = document.querySelector<HTMLElement>('#coin-boost-badge')!;
 const coinBoostTimerEl = document.querySelector('#coin-boost-timer')!;
 const coinBoostButton = document.querySelector<HTMLButtonElement>('#buy-coin-boost')!;
@@ -932,7 +932,7 @@ function updateHud(reward = 0, gemReward = 0) {
   const { level, progressPercent } = getLevelInfo();
   playerLevelEl.textContent = `Lv.${level}`;
   levelBarFill.style.width = `${progressPercent}%`;
-  rankingMyLevelEl.textContent = `Lv.${level} · ${progressPercent}%`;
+  rankingMyLevelEl.textContent = `Lv.${level}`;
   if (level !== lastReportedLevel) {
     lastReportedLevel = level;
     reportScoreToPlatform(level, progressPercent);
