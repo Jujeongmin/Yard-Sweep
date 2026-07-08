@@ -166,11 +166,8 @@ const ko: Dict = {
   'notice.robotVacuumAcquired': '로봇청소기 획득!',
 
   'tutorial.step1': 'WASD 키로 이동해보세요',
-  'tutorial.step2': '마우스를 움직여 주변을 둘러보세요',
-  'tutorial.step3': '좌클릭으로 낙엽을 청소하세요',
-  'tutorial.step4': 'Tab 키를 눌러 상점을 열어보세요',
-  'tutorial.step5': '숫자키 2를 눌러 장비를 교체해보세요',
-  'tutorial.step6': '지역을 100% 청소하고 다음 지역으로 이동하세요',
+  'tutorial.step2': '좌클릭으로 낙엽을 청소하세요',
+  'tutorial.step3': 'Tab 키를 눌러 상점을 열어보세요',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': '튜토리얼 완료!',
 
@@ -342,11 +339,8 @@ const en: Dict = {
   'notice.robotVacuumAcquired': 'Robot Vacuum acquired!',
 
   'tutorial.step1': 'Move around using W A S D keys',
-  'tutorial.step2': 'Look around by moving your mouse',
-  'tutorial.step3': 'Click to clean leaves',
-  'tutorial.step4': 'Press Tab to open the shop',
-  'tutorial.step5': 'Press 2 to switch tools',
-  'tutorial.step6': 'Clear the region 100% and move to the next area',
+  'tutorial.step2': 'Click to clean leaves',
+  'tutorial.step3': 'Press Tab to open the shop',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': 'Tutorial complete!',
 

@@ -688,27 +688,25 @@ let robotVacuumOwned = saveData.robotVacuumOwned;
 const settings = saveData.settings;
 let tutorialStep = saveData.tutorial;
 let tutorialProgress = 0;
-let tutorialYawSum = 0;
 let tutorialCleanCount = 0;
 let tutorialMoveDist = 0;
 
 function updateTutorialUI() {
-  if (tutorialStep === 0 || tutorialStep > 6) {
+  if (tutorialStep === 0 || tutorialStep > 3) {
     tutorialEl.classList.add('hidden');
     return;
   }
   tutorialEl.classList.remove('hidden');
   tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}`);
-  tutorialProgressEl.textContent = t('tutorial.progress', { current: tutorialStep, total: 6 });
+  tutorialProgressEl.textContent = t('tutorial.progress', { current: tutorialStep, total: 3 });
 }
 
 function advanceTutorial() {
   tutorialStep += 1;
   tutorialProgress = 0;
-  tutorialYawSum = 0;
   tutorialCleanCount = 0;
   tutorialMoveDist = 0;
-  if (tutorialStep > 6) {
+  if (tutorialStep > 3) {
     tutorialEl.classList.add('hidden');
   } else {
     updateTutorialUI();
@@ -1046,7 +1044,6 @@ function equipTool(toolId: ToolId) {
   }
   stopCleaning();
   currentToolId = toolId;
-  if (tutorialStep === 5 && toolId !== 'basicBroom') advanceTutorial();
   const tool = tools[toolId];
   document.querySelectorAll('.slot').forEach((slot) => slot.classList.remove('active'));
   document.querySelector(`[data-slot="${tool.slot}"]`)?.classList.add('active');
@@ -1193,7 +1190,7 @@ function removeObject(object: Cleanable) {
   updateHud(reward, gemReward);
   checkMissionsAndAchievements();
   tutorialCleanCount += 1;
-  if (tutorialCleanCount >= 3 && tutorialStep === 3) advanceTutorial();
+  if (tutorialCleanCount >= 3 && tutorialStep === 2) advanceTutorial();
   persist();
   if (settings.vibration && usesMobileControls()) navigator.vibrate?.(40);
   if (cleaned >= total) completeRegion();
@@ -1305,12 +1302,11 @@ start.addEventListener('click', () => {
   if (tutorialStep === 0) {
     tutorialStep = 1;
     tutorialProgress = 0;
-    tutorialYawSum = 0;
     tutorialCleanCount = 0;
     tutorialMoveDist = 0;
     persist();
   }
-  if (tutorialStep > 0 && tutorialStep <= 6) {
+  if (tutorialStep > 0 && tutorialStep <= 3) {
     tutorialEl.classList.remove('hidden');
     updateTutorialUI();
   }
@@ -1318,7 +1314,6 @@ start.addEventListener('click', () => {
 regionCompleteCard.addEventListener('click', () => {
   const nextRegion = currentRegionId < 3 ? (currentRegionId + 1) as RegionId : 1;
   enterRegion(nextRegion);
-  if (tutorialStep === 6) advanceTutorial();
   if (!usesMobileControls()) canvas.requestPointerLock?.();
 });
 
@@ -1362,8 +1357,6 @@ document.addEventListener('mousemove', (event) => {
   yaw -= event.movementX * 0.0022 * settings.sensitivity;
   pitch -= event.movementY * 0.0018 * settings.sensitivity;
   pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
-  tutorialYawSum += Math.abs(event.movementX * 0.0022 * settings.sensitivity);
-  if (tutorialYawSum >= 1.0 && tutorialStep === 2) advanceTutorial();
 });
 
 window.addEventListener('keydown', (event) => {
@@ -1473,7 +1466,7 @@ function toggleShop(force?: boolean) {
   stopCleaning();
   keys.clear();
   if (shopOpen) {
-    if (tutorialStep === 4) advanceTutorial();
+    if (tutorialStep === 3) advanceTutorial();
     if (settingsOpen) toggleSettings(false);
     document.exitPointerLock?.();
     refreshShop();
