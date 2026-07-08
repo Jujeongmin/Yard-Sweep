@@ -916,8 +916,8 @@ function enterFullscreen() {
   }
   try {
     const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
-    orientation.lock?.('landscape');
-  } catch { /* ignore */ }
+    orientation.lock?.('landscape')?.catch(() => {});
+  } catch {}
   setTimeout(() => {
     if (!document.fullscreenElement && isTouchDevice()) {
       showNotice(t('notice.rotateDevice'));
