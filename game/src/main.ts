@@ -964,8 +964,6 @@ function reportScoreToPlatform(level: number, expProgress: number) {
   syncStats(level, expProgress);
 }
 
-let lastReportedLevel = 0;
-
 function updateHud(reward = 0, gemReward = 0) {
   coinsEl.textContent = String(Math.floor(coins));
   gemsEl.textContent = String(Math.floor(gems));
@@ -978,10 +976,7 @@ function updateHud(reward = 0, gemReward = 0) {
   playerLevelEl.textContent = `Lv.${level}`;
   levelBarFill.style.width = `${progressPercent}%`;
   rankingMyLevelEl.textContent = `Lv.${level}`;
-  if (level !== lastReportedLevel) {
-    lastReportedLevel = level;
-    reportScoreToPlatform(level, progressPercent);
-  }
+  reportScoreToPlatform(level, progressPercent);
   if (reward > 0 || gemReward > 0) {
     playCoinSound();
     feedback.textContent = buildRewardLabel(Math.floor(reward), Math.floor(gemReward));

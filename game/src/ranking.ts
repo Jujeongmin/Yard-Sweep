@@ -4,8 +4,6 @@ import { t } from './i18n';
 let server: GameServer | null = null;
 let connected = false;
 let nickname: string | null = null;
-let lastLevel = 0;
-let lastExp = 0;
 
 export async function initRanking() {
   try {
@@ -55,14 +53,7 @@ export async function resetAllData(): Promise<string | null> {
 
 export async function syncStats(level: number, exp: number) {
   if (!server || !connected) return;
-  if (level === lastLevel && exp === lastExp) return;
-  lastLevel = level;
-  lastExp = exp;
-  try {
-    await server.remoteFunction('updatePlayerStats', [level, exp]);
-  } catch {
-    // silently fail
-  }
+  server.remoteFunction('updatePlayerStats', [level, exp]).catch(() => {});
 }
 
 export async function loadRankings() {
