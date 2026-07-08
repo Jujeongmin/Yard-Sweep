@@ -1309,6 +1309,9 @@ function startGame() {
   gameStarted = true;
   start.classList.add('hidden');
   playRegionBgm();
+  if (!usesMobileControls() && !document.fullscreenElement) {
+    document.querySelector<HTMLElement>('#fullscreen-prompt')!.classList.remove('hidden');
+  }
   if (!usesMobileControls()) canvas.requestPointerLock?.();
   if (tutorialStep === 0) {
     tutorialStep = 1;
@@ -1332,8 +1335,12 @@ start.addEventListener('click', () => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement && isTouchDevice() && !gameStarted) {
-    startGame();
+  const prompt = document.querySelector<HTMLElement>('#fullscreen-prompt')!;
+  if (document.fullscreenElement) {
+    prompt.classList.add('hidden');
+    if (isTouchDevice() && !gameStarted) startGame();
+  } else if (!isTouchDevice() && gameStarted && !shopOpen && !settingsOpen) {
+    prompt.classList.remove('hidden');
   }
   if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
     gameStarted = false;
@@ -1380,6 +1387,9 @@ window.addEventListener('mouseup', stopCleaning);
 document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement !== canvas && !usesMobileControls() && !shopOpen) {
     stopCleaning();
+    if (!document.fullscreenElement) {
+      document.querySelector<HTMLElement>('#fullscreen-prompt')!.classList.remove('hidden');
+    }
   }
 });
 document.addEventListener('mousemove', (event) => {
@@ -1521,6 +1531,9 @@ function toggleSettings(force?: boolean) {
 document.querySelector('#shop-button')!.addEventListener('click', () => toggleShop());
 document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
 document.querySelector('#rotate-fullscreen')!.addEventListener('click', () => {
+  enterFullscreen();
+});
+document.querySelector('#fullscreen-prompt-btn')!.addEventListener('click', () => {
   enterFullscreen();
 });
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
