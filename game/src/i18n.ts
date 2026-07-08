@@ -112,6 +112,7 @@ const ko: Dict = {
 
   'settings.title': '설정',
   'settings.nickname': '닉네임',
+  'settings.data': '데이터',
   'settings.language': '언어',
   'settings.bgmVolume': 'BGM 볼륨',
   'settings.sfxVolume': '효과음 볼륨',
@@ -249,6 +250,7 @@ const en: Dict = {
 
   'settings.title': 'Settings',
   'settings.nickname': 'Nickname',
+  'settings.data': 'Data',
   'settings.language': 'Language',
   'settings.bgmVolume': 'BGM Volume',
   'settings.sfxVolume': 'SFX Volume',

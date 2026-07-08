@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -123,8 +123,8 @@
             <article>
               <h3 data-i18n="settings.language">언어</h3>
               <div class="settings-row">
-                <button class="lang-option selected" data-lang="ko">한국어</button>
-                <button class="lang-option" data-lang="en">English</button>
+                <button class="lang-option" data-lang="ko">한국어</button>
+                <button class="lang-option selected" data-lang="en">English</button>
               </div>
             </article>
             <article>
@@ -138,6 +138,11 @@
             <article>
               <h3><span data-i18n="settings.sensitivity">마우스 감도</span> <em id="sensitivity-value">100%</em></h3>
               <input type="range" id="sensitivity" min="50" max="200" value="100" />
+            </article>
+            <article>
+              <h3 data-i18n="settings.data">데이터</h3>
+              <button id="reset-data-btn" class="settings-btn reset-btn">데이터 초기화</button>
+              <p id="reset-data-status" class="nickname-status"></p>
             </article>
             <article class="mobile-only-setting">
               <h3 data-i18n="settings.vibration">진동</h3>

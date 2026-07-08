@@ -15,7 +15,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
-import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname } from './ranking';
+import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -635,7 +635,7 @@ interface SaveData {
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
-const defaultSettings: GameSettings = { language: 'ko', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true };
+const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true };
 const defaultSave: SaveData = {
   coins: 0,
   gems: 300,
@@ -1476,9 +1476,22 @@ nicknameSaveBtn.addEventListener('click', async () => {
   const val = nicknameInput.value.trim();
   if (!val) { nicknameStatus.textContent = '닉네임을 입력해주세요.'; return; }
   nicknameSaveBtn.textContent = '저장 중...';
-  const ok = await setNickname(val);
+  const error = await setNickname(val);
   nicknameSaveBtn.textContent = '저장';
-  nicknameStatus.textContent = ok ? `저장됨: ${val}` : '저장 실패';
+  nicknameStatus.textContent = error || `저장됨: ${val}`;
+});
+
+const resetDataBtn = document.querySelector<HTMLButtonElement>('#reset-data-btn')!;
+const resetDataStatus = document.querySelector('#reset-data-status')!;
+resetDataBtn.addEventListener('click', async () => {
+  resetDataBtn.textContent = '초기화 중...';
+  const error = await resetAllData();
+  resetDataBtn.textContent = '데이터 초기화';
+  resetDataStatus.textContent = error || '초기화 완료';
+  if (!error) {
+    nicknameInput.value = '';
+    nicknameStatus.textContent = '닉네임을 설정하면 랭킹에 등록됩니다.';
+  }
 });
 document.querySelectorAll<HTMLButtonElement>('[data-shop-tab]').forEach((button) => button.addEventListener('click', () => {
   document.querySelectorAll('[data-shop-tab]').forEach((item) => item.classList.toggle('selected', item === button));

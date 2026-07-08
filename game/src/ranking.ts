@@ -29,14 +29,26 @@ export function getNickname() {
 }
 
 export async function setNickname(value: string) {
-  if (!server || !connected) return false;
+  if (!server || !connected) return '서버 연결 안됨';
   try {
     await server.remoteFunction('setNickname', [value.trim()]);
     nickname = value.trim();
     updateNicknameUI();
-    return true;
+    return null;
   } catch (e: any) {
-    return false;
+    return e?.message || '저장 실패';
+  }
+}
+
+export async function resetAllData(): Promise<string | null> {
+  if (!server || !connected) return '서버 연결 안됨';
+  try {
+    await server.remoteFunction('resetAllData');
+    nickname = null;
+    updateNicknameUI();
+    return null;
+  } catch (e: any) {
+    return e?.message || '초기화 실패';
   }
 }
 
