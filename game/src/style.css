@@ -401,11 +401,6 @@ button { font: inherit; }
   font-size: var(--fs-sm);
 }
 .fullscreen-banner.hidden { display: none; }
-.fullscreen-banner button {
-  padding: clamp(4px, 0.8vw, 8px) clamp(12px, 2vw, 20px);
-  border: 0; border-radius: var(--radius-sm); background: #3ca24a; color: white;
-  font-size: var(--fs-xs); font-weight: 800; cursor: pointer;
-}
 
 @media (pointer: coarse) {
   .fullscreen-banner { display: none; }

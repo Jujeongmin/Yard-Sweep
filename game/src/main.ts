@@ -1545,9 +1545,6 @@ document.querySelector('#fullscreen-button')!.addEventListener('click', enterFul
 document.querySelector('#rotate-fullscreen')!.addEventListener('click', () => {
   enterFullscreen();
 });
-document.querySelector('#fullscreen-prompt-btn')!.addEventListener('click', () => {
-  enterFullscreen();
-});
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
 document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
 document.querySelector('#settings-close')!.addEventListener('click', () => toggleSettings(false));
