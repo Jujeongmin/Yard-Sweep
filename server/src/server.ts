@@ -63,6 +63,12 @@ export class Server {
     }
   }
 
+  async resetAllData(): Promise<{ success: boolean }> {
+    await $global.deleteCollection('rankings');
+    await $global.updateMyState({ nickname: null });
+    return { success: true };
+  }
+
   async getTopRankings(): Promise<any[]> {
     const items = await $global.getCollectionItems('rankings', {
       orderBy: [{ field: 'level', direction: 'desc' }],
