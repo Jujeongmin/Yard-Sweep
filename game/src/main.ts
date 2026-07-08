@@ -1294,7 +1294,8 @@ function updateRobotVacuum(delta: number) {
   }
 }
 
-start.addEventListener('click', () => {
+function startGame() {
+  if (gameStarted) return;
   gameStarted = true;
   start.classList.add('hidden');
   playRegionBgm();
@@ -1309,6 +1310,26 @@ start.addEventListener('click', () => {
   if (tutorialStep > 0 && tutorialStep <= 3) {
     tutorialEl.classList.remove('hidden');
     updateTutorialUI();
+  }
+}
+
+start.addEventListener('click', async () => {
+  if (usesMobileControls() && !document.fullscreenElement) {
+    await enterFullscreen();
+    return;
+  }
+  startGame();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement && usesMobileControls() && !gameStarted) {
+    startGame();
+  }
+  if (!document.fullscreenElement && usesMobileControls() && !shopOpen && !settingsOpen) {
+    gameStarted = false;
+    stopCleaning();
+    bgmTracks.forEach((audio) => audio.pause());
+    start.classList.remove('hidden');
   }
 });
 regionCompleteCard.addEventListener('click', () => {
