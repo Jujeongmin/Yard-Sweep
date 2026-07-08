@@ -1064,7 +1064,7 @@ function calculateAimPoint() {
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
   ray.set(camera.position, direction);
-  if (!ray.intersectPlane(groundPlane, aimPoint) || camera.position.distanceTo(aimPoint) > 7.5) {
+  if (!ray.intersectPlane(groundPlane, aimPoint) || camera.position.distanceTo(aimPoint) > 5) {
     aimPoint.copy(camera.position).add(direction.multiplyScalar(5));
     aimPoint.y = 0;
   }
@@ -1080,7 +1080,7 @@ function objectsInRadius() {
   return cleanables.filter((object) => {
     if (object.userData.cleaned || !object.visible) return false;
     const worldPosition = object.getWorldPosition(projected);
-    if (camera.position.distanceTo(worldPosition) > 7.5) return false;
+    if (camera.position.distanceTo(worldPosition) > 5) return false;
     worldPosition.y += 0.18;
     worldPosition.project(camera);
     if (worldPosition.z < -1 || worldPosition.z > 1) return false;
