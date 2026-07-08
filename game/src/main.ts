@@ -638,7 +638,7 @@ const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0
 const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true };
 const defaultSave: SaveData = {
   coins: 0,
-  gems: 300,
+  gems: 0,
   currentRegion: 1,
   unlockedRegion: 1,
   regionProgress: {},
