@@ -763,7 +763,6 @@ const CLEANING_GRACE_PERIOD = 0.15;
 let shopOpen = false;
 let settingsOpen = false;
 let gameStarted = false;
-let gameEverStarted = false;
 let currentToolId: ToolId = 'basicBroom';
 const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
 const upgrades = saveData.upgrades;
@@ -1308,17 +1307,14 @@ function updateRobotVacuum(delta: number) {
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
-  gameEverStarted = true;
   start.classList.add('hidden');
   if (isTouchDevice()) {
-    if (!gameEverStarted) {
-      camera.position.set(0, standingHeight, 13);
-      yaw = 0;
-      pitch = -0.12;
-    }
+    camera.position.set(0, standingHeight, 13);
     camera.fov = 72;
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
+    yaw = 0;
+    pitch = -0.12;
   }
   playRegionBgm();
   if (!usesMobileControls() && !document.fullscreenElement) {
