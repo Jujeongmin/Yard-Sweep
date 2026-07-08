@@ -60,7 +60,7 @@ export async function syncStats(level: number, exp: number) {
   pendingLevel = level;
   pendingExp = exp;
   const now = Date.now();
-  if (now - lastSyncTime >= 60000) {
+  if (now - lastSyncTime >= 300000) {
     lastSyncTime = now;
     server.remoteFunction('updatePlayerStats', [level, exp]).catch(() => {});
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
@@ -69,7 +69,7 @@ export async function syncStats(level: number, exp: number) {
       lastSyncTime = Date.now();
       server!.remoteFunction('updatePlayerStats', [pendingLevel, pendingExp]).catch(() => {});
       syncTimer = null;
-    }, 60000 - (now - lastSyncTime));
+    }, 300000 - (now - lastSyncTime));
   }
 }
 
