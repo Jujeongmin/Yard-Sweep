@@ -1760,7 +1760,10 @@ function resize() {
   const baseFov = 72 * Math.PI / 180;
   const baseAspect = 16 / 9;
   const baseVFov = 2 * Math.atan(Math.tan(baseFov / 2) / baseAspect);
-  camera.fov = 2 * Math.atan(Math.tan(baseVFov / 2) * aspect) * 180 / Math.PI;
+  camera.fov = THREE.MathUtils.clamp(
+    2 * Math.atan(Math.tan(baseVFov / 2) * aspect) * 180 / Math.PI,
+    50, 90,
+  );
   camera.aspect = aspect;
   camera.updateProjectionMatrix();
 }
