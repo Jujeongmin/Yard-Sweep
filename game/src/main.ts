@@ -15,6 +15,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
+import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -914,8 +915,8 @@ function getLevelInfo() {
 
 // Hook for the platform's (Verse8) ranking/leaderboard integration. Called whenever
 // the player's level changes so it can be reported to the platform's ranking API.
-function reportScoreToPlatform(level: number) {
-  // TODO: call Verse8's ranking SDK/API here once the integration details are available.
+function reportScoreToPlatform(level: number, expProgress: number) {
+  syncStats(level, expProgress);
 }
 
 let lastReportedLevel = 0;
@@ -934,7 +935,7 @@ function updateHud(reward = 0, gemReward = 0) {
   rankingMyLevelEl.textContent = `Lv.${level} · ${progressPercent}%`;
   if (level !== lastReportedLevel) {
     lastReportedLevel = level;
-    reportScoreToPlatform(level);
+    reportScoreToPlatform(level, progressPercent);
   }
   if (reward > 0 || gemReward > 0) {
     playCoinSound();
@@ -1467,9 +1468,22 @@ langOptions.forEach((button) => button.addEventListener('click', () => {
   applyLocale();
   persist();
 }));
+
+const nicknameInput = document.querySelector<HTMLInputElement>('#nickname-input')!;
+const nicknameSaveBtn = document.querySelector<HTMLButtonElement>('#nickname-save')!;
+const nicknameStatus = document.querySelector('#nickname-status')!;
+nicknameSaveBtn.addEventListener('click', async () => {
+  const val = nicknameInput.value.trim();
+  if (!val) { nicknameStatus.textContent = '닉네임을 입력해주세요.'; return; }
+  nicknameSaveBtn.textContent = '저장 중...';
+  const ok = await setNickname(val);
+  nicknameSaveBtn.textContent = '저장';
+  nicknameStatus.textContent = ok ? `저장됨: ${val}` : '저장 실패';
+});
 document.querySelectorAll<HTMLButtonElement>('[data-shop-tab]').forEach((button) => button.addEventListener('click', () => {
   document.querySelectorAll('[data-shop-tab]').forEach((item) => item.classList.toggle('selected', item === button));
   document.querySelectorAll<HTMLElement>('[data-shop-content]').forEach((content) => content.classList.toggle('selected', content.dataset.shopContent === button.dataset.shopTab));
+  if (button.dataset.shopTab === 'ranking') loadRankings();
 }));
 document.querySelectorAll<HTMLButtonElement>('.buy-tool').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.tool as ToolId;
@@ -1573,6 +1587,7 @@ window.addEventListener('resize', resize);
 resize();
 enterRegion(currentRegionId);
 equipTool('basicBroom');
+initRanking();
 
 function animate() {
   requestAnimationFrame(animate);

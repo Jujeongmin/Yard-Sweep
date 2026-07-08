@@ -100,8 +100,10 @@
             <article><span class="shop-glyph">🍁</span><div><h3 data-i18n="achievement.leaf10000">낙엽 10,000개 제거</h3><p data-achievement-progress="leaf10000">0 / 10000</p></div><button class="claim-achievement" data-achievement="leaf10000">0/10000</button></article>
           </div>
           <div class="shop-content list" data-shop-content="ranking">
-            <article><span class="shop-glyph">🏅</span><div><h3 data-i18n="ranking.myLevel">내 레벨</h3><p id="ranking-my-level">Lv.1 · 0%</p></div></article>
-            <p class="ranking-note" data-i18n="ranking.note">플랫폼 랭킹은 배포 후 연동됩니다.</p>
+            <article><span class="shop-glyph">🏅</span><div><h3 data-i18n="ranking.myRank">내 랭킹</h3><p id="ranking-my-rank">-</p></div></article>
+            <div id="ranking-list"></div>
+            <p id="ranking-loading" class="ranking-note">로딩 중...</p>
+            <p id="ranking-empty" class="ranking-note hidden">아직 랭킹이 없습니다.</p>
           </div>
           <footer><span data-i18n="shop.footerPc">PC: </span><b>Tab</b><span data-i18n="shop.footerToggle">으로 열기/닫기 · 구매 내용은 자동 저장됩니다</span></footer>
         </div>
@@ -110,6 +112,14 @@
         <div class="shop-panel">
           <header><div><small>YARD SUPPLY</small><h2 data-i18n="settings.title">설정</h2></div><button id="settings-close" data-i18n-aria="aria.settingsClose" aria-label="설정 닫기">×</button></header>
           <div class="settings-content">
+            <article>
+              <h3 data-i18n="settings.nickname">닉네임</h3>
+              <div class="settings-row">
+                <input type="text" id="nickname-input" placeholder="닉네임 입력" maxlength="15" class="nickname-field" />
+                <button id="nickname-save" class="lang-option">저장</button>
+              </div>
+              <p id="nickname-status" class="nickname-status"></p>
+            </article>
             <article>
               <h3 data-i18n="settings.language">언어</h3>
               <div class="settings-row">
