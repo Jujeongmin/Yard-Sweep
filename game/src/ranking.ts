@@ -4,6 +4,10 @@ import { t } from './i18n';
 let server: GameServer | null = null;
 let connected = false;
 let nickname: string | null = null;
+let lastSyncTime = 0;
+let pendingLevel = 0;
+let pendingExp = 0;
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
 export async function initRanking() {
   try {
@@ -53,7 +57,20 @@ export async function resetAllData(): Promise<string | null> {
 
 export async function syncStats(level: number, exp: number) {
   if (!server || !connected) return;
-  server.remoteFunction('updatePlayerStats', [level, exp]).catch(() => {});
+  pendingLevel = level;
+  pendingExp = exp;
+  const now = Date.now();
+  if (now - lastSyncTime >= 60000) {
+    lastSyncTime = now;
+    server.remoteFunction('updatePlayerStats', [level, exp]).catch(() => {});
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+  } else if (!syncTimer) {
+    syncTimer = setTimeout(() => {
+      lastSyncTime = Date.now();
+      server!.remoteFunction('updatePlayerStats', [pendingLevel, pendingExp]).catch(() => {});
+      syncTimer = null;
+    }, 60000 - (now - lastSyncTime));
+  }
 }
 
 export async function loadRankings() {
