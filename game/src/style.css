@@ -101,6 +101,8 @@ button { font: inherit; }
 .lang-option.selected { color:white; background:#395c55; box-shadow:0 3px 0 #223a34; }
 .settings-btn { flex: 1; padding: 9px; border: 0; border-radius: 12px; background: white; color: #51645c; box-shadow: 0 3px 0 #bdcdb6; cursor: pointer; }
 .reset-btn { background: #e85d5d; color: white; box-shadow: 0 3px 0 #a33; }
+.reset-btn-confirm { background: #ff2020; animation: pulse-reset 0.6s infinite; }
+@keyframes pulse-reset { 50% { transform: scale(1.03); } }
 .settings-note { margin:8px 0 0; color:#74827d; font-size:11px; }
 .settings-toggle { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
 .mobile-only-setting { display:none; }

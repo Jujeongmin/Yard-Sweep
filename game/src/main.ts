@@ -1483,14 +1483,39 @@ nicknameSaveBtn.addEventListener('click', async () => {
 
 const resetDataBtn = document.querySelector<HTMLButtonElement>('#reset-data-btn')!;
 const resetDataStatus = document.querySelector('#reset-data-status')!;
+let resetConfirming = false;
+
+function cancelResetConfirm() {
+  resetConfirming = false;
+  resetDataBtn.textContent = '데이터 초기화';
+  resetDataBtn.classList.remove('reset-btn-confirm');
+  resetDataStatus.textContent = '';
+}
+
 resetDataBtn.addEventListener('click', async () => {
+  if (!resetConfirming) {
+    resetConfirming = true;
+    resetDataBtn.textContent = '정말 초기화하시겠습니까?';
+    resetDataBtn.classList.add('reset-btn-confirm');
+    resetDataStatus.textContent = '다시 누르면 모든 랭킹 데이터가 삭제됩니다.';
+    return;
+  }
+
   resetDataBtn.textContent = '초기화 중...';
+  resetDataBtn.classList.remove('reset-btn-confirm');
   const error = await resetAllData();
   resetDataBtn.textContent = '데이터 초기화';
   resetDataStatus.textContent = error || '초기화 완료';
+  resetConfirming = false;
   if (!error) {
     nicknameInput.value = '';
     nicknameStatus.textContent = '닉네임을 설정하면 랭킹에 등록됩니다.';
+  }
+});
+
+document.addEventListener('click', (e) => {
+  if (resetConfirming && !resetDataBtn.contains(e.target as Node)) {
+    cancelResetConfirm();
   }
 });
 document.querySelectorAll<HTMLButtonElement>('[data-shop-tab]').forEach((button) => button.addEventListener('click', () => {
