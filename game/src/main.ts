@@ -34,7 +34,8 @@ scene.background = new THREE.Color(0x66c8f2);
 scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
 
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 1.85, 11);
+const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 10 : 11;
+camera.position.set(0, 1.85, cameraBaseZ);
 scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xc6efff, 0x5f7b32, 2.2));
@@ -1129,7 +1130,7 @@ function enterRegion(regionId: RegionId) {
   applyRegionTheme(regionId);
   regionNameEl.textContent = t(regions[regionId].name);
   regionCompleteCard.classList.add('hidden');
-  camera.position.set(0, standingHeight, 11);
+  camera.position.set(0, standingHeight, cameraBaseZ);
   updateHud();
   playRegionBgm();
   persist();
