@@ -1338,7 +1338,6 @@ document.addEventListener('fullscreenchange', () => {
     gameStarted = false;
     stopCleaning();
     bgmTracks.forEach((audio) => audio.pause());
-    start.classList.remove('hidden');
   }
 });
 regionCompleteCard.addEventListener('click', () => {
@@ -1816,3 +1815,8 @@ function applyLocale() {
 
 animate();
 applyLocale();
+
+if (isTouchDevice()) {
+  startGame();
+  (document.querySelector('#fullscreen-button') as HTMLElement).style.display = 'block';
+}

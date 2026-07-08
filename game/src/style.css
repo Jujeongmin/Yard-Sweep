@@ -400,6 +400,7 @@ button { font: inherit; }
 @media (pointer: coarse) {
   .start-subtitle-mobile { display: block; }
   .start-subtitle-desktop { display: none; }
+  .start-card { display: none; }
 }
 
 @media (min-width: 851px) and (pointer: fine) {
