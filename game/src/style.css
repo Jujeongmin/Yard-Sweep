@@ -449,7 +449,6 @@ button { font: inherit; }
   .start-card { position: relative; transform: none; left: auto; top: auto; margin: 0; }
   #mobile-controls { display: none; }
   #rotate-screen, #rotate-screen.show { display: flex; }
-  #fullscreen-button { display: block; }
   #rotate-screen {
     flex-direction: column; align-items: center; justify-content: center;
     text-align: center; padding: clamp(20px,4vw,28px);
@@ -487,7 +486,6 @@ button { font: inherit; }
   .tool-hint { bottom: clamp(6px,1vw,8px); }
   .controls { display: none; }
   .button-key { display: none; }
-  #fullscreen-button { display: block; }
   #mobile-controls { display: block; }
 
   #joystick {
