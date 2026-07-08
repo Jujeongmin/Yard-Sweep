@@ -34,7 +34,7 @@ scene.background = new THREE.Color(0x66c8f2);
 scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
 
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 100);
-const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 13 : 11;
+const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 15 : 11;
 camera.position.set(0, 1.85, cameraBaseZ);
 scene.add(camera);
 
