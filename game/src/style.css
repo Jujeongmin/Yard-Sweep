@@ -394,6 +394,14 @@ button { font: inherit; }
 #mobile-controls { display: block; }
 
 /* ── Desktop overrides ── */
+.start-subtitle-mobile { display: none; }
+.start-subtitle-desktop { display: block; }
+
+@media (pointer: coarse) {
+  .start-subtitle-mobile { display: block; }
+  .start-subtitle-desktop { display: none; }
+}
+
 @media (min-width: 851px) and (pointer: fine) {
   .brand { display: block; }
   .controls { display: block; }

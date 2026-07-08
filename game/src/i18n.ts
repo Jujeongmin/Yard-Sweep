@@ -60,6 +60,7 @@ const ko: Dict = {
 
   'start.title': '청소 시작!',
   'start.subtitle': '클릭하여 마우스를 연결하세요',
+  'start.tapToStart': '화면을 터치하여 시작',
 
   'mobile.holdToClean': '길게 눌러 청소',
 
@@ -233,6 +234,7 @@ const en: Dict = {
 
   'start.title': 'Start cleaning!',
   'start.subtitle': 'Click to enable mouse look',
+  'start.tapToStart': 'Tap to start',
 
   'mobile.holdToClean': 'Hold to clean',
 

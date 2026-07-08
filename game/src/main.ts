@@ -1728,7 +1728,12 @@ canvas.addEventListener('touchmove', (event) => {
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
-  camera.aspect = innerWidth / innerHeight;
+  const aspect = innerWidth / innerHeight;
+  const baseFov = 72 * Math.PI / 180;
+  const baseAspect = 16 / 9;
+  const baseVFov = 2 * Math.atan(Math.tan(baseFov / 2) / baseAspect);
+  camera.fov = 2 * Math.atan(Math.tan(baseVFov / 2) * aspect) * 180 / Math.PI;
+  camera.aspect = aspect;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
