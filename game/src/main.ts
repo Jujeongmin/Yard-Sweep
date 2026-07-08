@@ -34,7 +34,7 @@ scene.background = new THREE.Color(0x66c8f2);
 scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
 
 const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 100);
-camera.position.set(0, 1.85, 8);
+camera.position.set(0, 1.85, 9.5);
 scene.add(camera);
 
 scene.add(new THREE.HemisphereLight(0xc6efff, 0x5f7b32, 2.2));
@@ -1064,7 +1064,7 @@ function calculateAimPoint() {
   const direction = new THREE.Vector3();
   camera.getWorldDirection(direction);
   ray.set(camera.position, direction);
-  if (!ray.intersectPlane(groundPlane, aimPoint) || camera.position.distanceTo(aimPoint) > 8.5) {
+  if (!ray.intersectPlane(groundPlane, aimPoint) || camera.position.distanceTo(aimPoint) > 10) {
     aimPoint.copy(camera.position).add(direction.multiplyScalar(5));
     aimPoint.y = 0;
   }
@@ -1080,7 +1080,7 @@ function objectsInRadius() {
   return cleanables.filter((object) => {
     if (object.userData.cleaned || !object.visible) return false;
     const worldPosition = object.getWorldPosition(projected);
-    if (camera.position.distanceTo(worldPosition) > 8.5) return false;
+    if (camera.position.distanceTo(worldPosition) > 10) return false;
     worldPosition.y += 0.18;
     worldPosition.project(camera);
     if (worldPosition.z < -1 || worldPosition.z > 1) return false;
@@ -1129,7 +1129,7 @@ function enterRegion(regionId: RegionId) {
   applyRegionTheme(regionId);
   regionNameEl.textContent = t(regions[regionId].name);
   regionCompleteCard.classList.add('hidden');
-  camera.position.set(0, standingHeight, 8);
+  camera.position.set(0, standingHeight, 9.5);
   updateHud();
   playRegionBgm();
   persist();
