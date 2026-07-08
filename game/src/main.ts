@@ -23,8 +23,8 @@ type Cleanable = THREE.Group & {
 };
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: !isTouchDevice() });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouchDevice() ? 1.5 : 1.75));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -42,7 +42,7 @@ scene.add(new THREE.HemisphereLight(0xc6efff, 0x5f7b32, 2.2));
 const sun = new THREE.DirectionalLight(0xfff2cd, 3.2);
 sun.position.set(-10, 18, 8);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(isTouchDevice() ? 1024 : 2048, isTouchDevice() ? 1024 : 2048);
 sun.shadow.camera.left = -24; sun.shadow.camera.right = 24;
 sun.shadow.camera.top = 24; sun.shadow.camera.bottom = -24;
 scene.add(sun);
@@ -157,12 +157,12 @@ function flowerCluster(x: number, z: number, color: number) {
 
 const gardenDecor = new THREE.Group();
 const flowerColors = [0xe85f8a, 0xf2b6d4, 0x9b6fd6, 0xf7e14a];
-for (let i = 0; i < 36; i++) {
+for (let i = 0; i < (isTouchDevice() ? 18 : 36); i++) {
   const [x, z] = randomOpenPosition();
   gardenDecor.add(flowerCluster(x, z, flowerColors[Math.floor(Math.random() * flowerColors.length)]));
 }
 for (const side of [-1, 1]) {
-  for (let z = -16; z <= 16; z += 3.2) {
+  for (let z = -16; z <= 16; z += (isTouchDevice() ? 4.8 : 3.2)) {
     const hedge = new THREE.Mesh(
       new THREE.SphereGeometry(0.55, 7, 6),
       new THREE.MeshStandardMaterial({ color: 0x3f8a3a, flatShading: true, roughness: 0.9 }),
@@ -189,7 +189,7 @@ function slabStone(x: number, z: number) {
 }
 
 const stoneDecor = new THREE.Group();
-for (let i = 0; i < 18; i++) {
+for (let i = 0; i < (isTouchDevice() ? 9 : 18); i++) {
   const [x, z] = randomOpenPosition();
   stoneDecor.add(slabStone(x, z));
 }
@@ -1787,7 +1787,7 @@ function animate() {
   updateRegionTimer();
 
   const tool = tools[currentToolId];
-  const movementBlocked = shopOpen || (isCleaning && !tool.canMoveWhileCleaning);
+  const movementBlocked = shopOpen || settingsOpen || !gameStarted || (isCleaning && !tool.canMoveWhileCleaning);
   const movement = new THREE.Vector3(
     Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + joystickX,
     0,
