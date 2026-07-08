@@ -632,6 +632,7 @@ interface SaveData {
   coinBoostExpiry: number;
   robotVacuumOwned: boolean;
   settings: GameSettings;
+  tutorial: number;
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
@@ -650,6 +651,7 @@ const defaultSave: SaveData = {
   coinBoostExpiry: 0,
   robotVacuumOwned: false,
   settings: { ...defaultSettings },
+  tutorial: 0,
 };
 function loadSave(): SaveData {
   try {
@@ -668,6 +670,7 @@ function loadSave(): SaveData {
       coinBoostExpiry: Number(parsed.coinBoostExpiry) || 0,
       robotVacuumOwned: Boolean(parsed.robotVacuumOwned),
       settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
+      tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
     };
   } catch { return structuredClone(defaultSave); }
 }
@@ -683,6 +686,35 @@ const achievementsClaimed = new Set<AchievementId>(saveData.achievementsClaimed)
 let coinBoostExpiry = saveData.coinBoostExpiry;
 let robotVacuumOwned = saveData.robotVacuumOwned;
 const settings = saveData.settings;
+let tutorialStep = saveData.tutorial;
+let tutorialProgress = 0;
+let tutorialYawSum = 0;
+let tutorialCleanCount = 0;
+let tutorialMoveDist = 0;
+
+function updateTutorialUI() {
+  if (tutorialStep === 0 || tutorialStep > 6) {
+    tutorialEl.classList.add('hidden');
+    return;
+  }
+  tutorialEl.classList.remove('hidden');
+  tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}`);
+  tutorialProgressEl.textContent = t('tutorial.progress', { current: tutorialStep, total: 6 });
+}
+
+function advanceTutorial() {
+  tutorialStep += 1;
+  tutorialProgress = 0;
+  tutorialYawSum = 0;
+  tutorialCleanCount = 0;
+  tutorialMoveDist = 0;
+  if (tutorialStep > 6) {
+    tutorialEl.classList.add('hidden');
+  } else {
+    updateTutorialUI();
+  }
+  persist();
+}
 setLocale(settings.language);
 document.documentElement.lang = settings.language;
 let robotVacuumTarget: Cleanable | null = null;
@@ -792,6 +824,9 @@ const feedback = document.querySelector<HTMLElement>('#feedback')!;
 const notice = document.querySelector<HTMLElement>('#notice')!;
 const hint = document.querySelector<HTMLElement>('#tool-hint')!;
 const start = document.querySelector<HTMLButtonElement>('#start')!;
+const tutorialEl = document.querySelector<HTMLElement>('#tutorial')!;
+const tutorialTextEl = document.querySelector<HTMLElement>('#tutorial-text')!;
+const tutorialProgressEl = document.querySelector<HTMLElement>('#tutorial-progress')!;
 const shop = document.querySelector<HTMLElement>('#shop')!;
 const shopCoins = document.querySelector<HTMLElement>('#shop-coins')!;
 const shopGems = document.querySelector<HTMLElement>('#shop-gems')!;
@@ -904,6 +939,7 @@ function persist() {
     coinBoostExpiry,
     robotVacuumOwned,
     settings,
+    tutorial: tutorialStep,
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
 }
@@ -1010,6 +1046,7 @@ function equipTool(toolId: ToolId) {
   }
   stopCleaning();
   currentToolId = toolId;
+  if (tutorialStep === 5 && toolId !== 'basicBroom') advanceTutorial();
   const tool = tools[toolId];
   document.querySelectorAll('.slot').forEach((slot) => slot.classList.remove('active'));
   document.querySelector(`[data-slot="${tool.slot}"]`)?.classList.add('active');
@@ -1155,6 +1192,8 @@ function removeObject(object: Cleanable) {
   if (object.userData.kind === 'can') incrementMissionProgress('can30');
   updateHud(reward, gemReward);
   checkMissionsAndAchievements();
+  tutorialCleanCount += 1;
+  if (tutorialCleanCount >= 3 && tutorialStep === 3) advanceTutorial();
   persist();
   if (settings.vibration && usesMobileControls()) navigator.vibrate?.(40);
   if (cleaned >= total) completeRegion();
@@ -1263,10 +1302,23 @@ start.addEventListener('click', () => {
   start.classList.add('hidden');
   playRegionBgm();
   if (!usesMobileControls()) canvas.requestPointerLock?.();
+  if (tutorialStep === 0) {
+    tutorialStep = 1;
+    tutorialProgress = 0;
+    tutorialYawSum = 0;
+    tutorialCleanCount = 0;
+    tutorialMoveDist = 0;
+    persist();
+  }
+  if (tutorialStep > 0 && tutorialStep <= 6) {
+    tutorialEl.classList.remove('hidden');
+    updateTutorialUI();
+  }
 });
 regionCompleteCard.addEventListener('click', () => {
   const nextRegion = currentRegionId < 3 ? (currentRegionId + 1) as RegionId : 1;
   enterRegion(nextRegion);
+  if (tutorialStep === 6) advanceTutorial();
   if (!usesMobileControls()) canvas.requestPointerLock?.();
 });
 
@@ -1310,6 +1362,8 @@ document.addEventListener('mousemove', (event) => {
   yaw -= event.movementX * 0.0022 * settings.sensitivity;
   pitch -= event.movementY * 0.0018 * settings.sensitivity;
   pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
+  tutorialYawSum += Math.abs(event.movementX * 0.0022 * settings.sensitivity);
+  if (tutorialYawSum >= 1.0 && tutorialStep === 2) advanceTutorial();
 });
 
 window.addEventListener('keydown', (event) => {
@@ -1419,6 +1473,7 @@ function toggleShop(force?: boolean) {
   stopCleaning();
   keys.clear();
   if (shopOpen) {
+    if (tutorialStep === 4) advanceTutorial();
     if (settingsOpen) toggleSettings(false);
     document.exitPointerLock?.();
     refreshShop();
@@ -1683,6 +1738,8 @@ function animate() {
     camera.position.addScaledVector(movement, 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta);
     camera.position.x = THREE.MathUtils.clamp(camera.position.x, -20, 20);
     camera.position.z = THREE.MathUtils.clamp(camera.position.z, -16, 16);
+    tutorialMoveDist += camera.position.distanceTo(new THREE.Vector3(previousX, 0, previousZ));
+    if (tutorialMoveDist >= 4 && tutorialStep === 1) advanceTutorial();
     if (isInsideHouse(camera.position.x, camera.position.z, 0.35)) {
       camera.position.x = previousX;
       camera.position.z = previousZ;
@@ -1723,6 +1780,7 @@ function applyLocale() {
   });
   regionNameEl.textContent = t(regions[currentRegionId].name);
   updateToolHintUi(currentToolId);
+  updateTutorialUI();
   refreshShop();
 }
 

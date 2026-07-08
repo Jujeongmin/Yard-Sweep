@@ -165,6 +165,15 @@ const ko: Dict = {
   'notice.coinBoostActivated': '코인 부스터 발동! (30분간 코인 +100%)',
   'notice.robotVacuumAcquired': '로봇청소기 획득!',
 
+  'tutorial.step1': 'WASD 키로 이동해보세요',
+  'tutorial.step2': '마우스를 움직여 주변을 둘러보세요',
+  'tutorial.step3': '좌클릭으로 낙엽을 청소하세요',
+  'tutorial.step4': 'Tab 키를 눌러 상점을 열어보세요',
+  'tutorial.step5': '숫자키 2를 눌러 장비를 교체해보세요',
+  'tutorial.step6': '지역을 100% 청소하고 다음 지역으로 이동하세요',
+  'tutorial.progress': '{current} / {total}',
+  'tutorial.complete': '튜토리얼 완료!',
+
   'vxshop.comingSoon': 'VX Shop은 배포 후 이용 가능합니다.',
   'ad.doubleApplied': '2x 보상 적용! (+{coins} 코인, +{gems} 보석)',
 };
@@ -331,6 +340,15 @@ const en: Dict = {
   'notice.upgradeComplete': 'Upgrade complete!',
   'notice.coinBoostActivated': 'Coin Booster activated! (+100% coins for 30 min)',
   'notice.robotVacuumAcquired': 'Robot Vacuum acquired!',
+
+  'tutorial.step1': 'Move around using W A S D keys',
+  'tutorial.step2': 'Look around by moving your mouse',
+  'tutorial.step3': 'Click to clean leaves',
+  'tutorial.step4': 'Press Tab to open the shop',
+  'tutorial.step5': 'Press 2 to switch tools',
+  'tutorial.step6': 'Clear the region 100% and move to the next area',
+  'tutorial.progress': '{current} / {total}',
+  'tutorial.complete': 'Tutorial complete!',
 
   'vxshop.comingSoon': 'VX Shop will be available after deployment.',
   'ad.doubleApplied': '2x reward applied! (+{coins} coins, +{gems} gems)',
