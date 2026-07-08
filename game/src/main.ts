@@ -1303,7 +1303,6 @@ window.addEventListener('mouseup', stopCleaning);
 document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement !== canvas && !usesMobileControls() && !shopOpen) {
     stopCleaning();
-    start.classList.remove('hidden');
   }
 });
 document.addEventListener('mousemove', (event) => {
