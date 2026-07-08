@@ -911,12 +911,16 @@ function isTouchDevice() {
 
 async function enterFullscreen() {
   try {
-    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: 'landscape') => Promise<void> };
-    await orientation.lock?.('landscape');
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+    }
   } catch {
     showNotice(t('notice.rotateDevice'));
   }
+  try {
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: 'landscape') => Promise<void> };
+    await orientation.lock?.('landscape');
+  } catch { /* orientation lock optional */ }
 }
 
 function showNotice(message: string) {
@@ -1320,6 +1324,7 @@ function startGame() {
 start.addEventListener('click', async () => {
   if (isTouchDevice() && !document.fullscreenElement) {
     await enterFullscreen();
+    if (document.fullscreenElement) startGame();
     return;
   }
   startGame();
@@ -1515,7 +1520,10 @@ function toggleSettings(force?: boolean) {
 }
 document.querySelector('#shop-button')!.addEventListener('click', () => toggleShop());
 document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
-document.querySelector('#rotate-fullscreen')!.addEventListener('click', enterFullscreen);
+document.querySelector('#rotate-fullscreen')!.addEventListener('click', async () => {
+  await enterFullscreen();
+  if (document.fullscreenElement) startGame();
+});
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
 document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
 document.querySelector('#settings-close')!.addEventListener('click', () => toggleSettings(false));
