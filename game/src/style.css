@@ -232,6 +232,7 @@ button { font: inherit; }
   border: clamp(3px,0.5vw,4px) solid white; border-radius: var(--radius-lg);
   color: white; background: linear-gradient(#78cf42,#3c9d32);
   cursor: pointer;
+  user-select: none; -webkit-user-select: none;
 }
 .start-card strong, .start-card small { display: block; }
 .start-card strong { margin: clamp(4px,0.8vw,8px) 0 clamp(2px,0.3vw,3px); font: clamp(20px,3.5vw,27px) Jua,sans-serif; }
@@ -365,6 +366,7 @@ button { font: inherit; }
   border: clamp(2px,0.4vw,3px) solid #fff176; border-radius: var(--radius-lg);
   background: rgba(20,45,60,.92); color: white; text-align: center;
   animation: tutorial-in 0.4s ease;
+  user-select: none; -webkit-user-select: none;
 }
 .tutorial.hidden { display: none; }
 .tutorial strong { display: block; font-size: var(--fs-md); font-family: Jua, sans-serif; }
@@ -396,6 +398,7 @@ button { font: inherit; }
   border: clamp(2px, 0.4vw, 3px) solid #fff176; border-radius: var(--radius-lg);
   background: rgba(20, 45, 60, 0.95); color: white; text-align: center;
   display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.5vw, 14px);
+  user-select: none; -webkit-user-select: none;
 }
 .fullscreen-prompt.hidden { display: none; }
 .fullscreen-prompt span { font-size: clamp(32px, 5vw, 48px); }
@@ -494,21 +497,24 @@ button { font: inherit; }
     width: clamp(85px,15vw,94px); height: clamp(85px,15vw,94px);
     border: clamp(2px,0.4vw,3px) solid rgba(255,255,255,.6);
     border-radius: 50%; background: rgba(18,42,55,.28);
-    user-select: none; -webkit-user-select: none; touch-action: none;
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
   }
   #joystick i {
     position: absolute;
     left: clamp(22px,4vw,25px); top: clamp(22px,4vw,25px);
     width: clamp(38px,7vw,45px); height: clamp(38px,7vw,45px);
     border-radius: 50%; background: rgba(255,255,255,.7);
+    user-select: none; -webkit-user-select: none;
   }
-  #clean-button {
+  #mobile-controls, #mobile-controls * {
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+#clean-button {
     position: fixed; z-index: 7; border: clamp(3px,0.5vw,4px) solid white;
     border-radius: 50%; color: white; touch-action: none;
     right: clamp(16px,3vw,20px); bottom: clamp(18px,3.5vw,24px);
     width: clamp(72px,13vw,82px); height: clamp(72px,13vw,82px);
     background: #4eaf3f; font-size: clamp(22px,4vw,28px);
-    user-select: none; -webkit-user-select: none;
   }
   #clean-button:active { transform: translateY(clamp(3px,0.5vw,4px)); }
   #clean-button small { display: block; font-size: var(--fs-xs); }
