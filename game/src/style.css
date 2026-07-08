@@ -193,7 +193,7 @@ button { font: inherit; }
 
 /* ── Notice & feedback ── */
 .notice {
-  position: fixed; z-index: 30; top: 24%; left: 50%;
+  position: fixed; z-index: 110; top: 24%; left: 50%;
   transform: translate(-50%,-8px);
   padding: var(--pad-sm) var(--pad-md);
   border: var(--border-w) solid white; border-radius: var(--radius-md);

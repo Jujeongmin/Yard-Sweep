@@ -909,18 +909,19 @@ function isTouchDevice() {
   return matchMedia('(pointer: coarse)').matches;
 }
 
-async function enterFullscreen() {
-  try {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-    }
-  } catch {
-    showNotice(t('notice.rotateDevice'));
+function enterFullscreen() {
+  if (!document.fullscreenElement) {
+    try { document.documentElement.requestFullscreen(); } catch { /* ignore */ }
   }
   try {
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: 'landscape') => Promise<void> };
-    await orientation.lock?.('landscape');
-  } catch { /* orientation lock optional */ }
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
+    orientation.lock?.('landscape');
+  } catch { /* ignore */ }
+  setTimeout(() => {
+    if (!document.fullscreenElement && isTouchDevice()) {
+      showNotice(t('notice.rotateDevice'));
+    }
+  }, 800);
 }
 
 function showNotice(message: string) {
@@ -1321,10 +1322,9 @@ function startGame() {
   }
 }
 
-start.addEventListener('click', async () => {
+start.addEventListener('click', () => {
   if (isTouchDevice() && !document.fullscreenElement) {
-    await enterFullscreen();
-    if (document.fullscreenElement) startGame();
+    enterFullscreen();
     return;
   }
   startGame();
@@ -1520,9 +1520,8 @@ function toggleSettings(force?: boolean) {
 }
 document.querySelector('#shop-button')!.addEventListener('click', () => toggleShop());
 document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
-document.querySelector('#rotate-fullscreen')!.addEventListener('click', async () => {
-  await enterFullscreen();
-  if (document.fullscreenElement) startGame();
+document.querySelector('#rotate-fullscreen')!.addEventListener('click', () => {
+  enterFullscreen();
 });
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
 document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
