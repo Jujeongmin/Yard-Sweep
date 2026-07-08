@@ -1355,6 +1355,10 @@ document.addEventListener('fullscreenchange', () => {
     stopCleaning();
     bgmTracks.forEach((audio) => audio.pause());
   }
+  // The fullscreen transition interrupts any in-progress touch with pointercancel/touchcancel
+  // (not pointerup/touchend), so reset movement/look input directly here as a safety net.
+  resetJoystick();
+  canvasTouchId = null;
 });
 regionCompleteCard.addEventListener('click', () => {
   const nextRegion = currentRegionId < 3 ? (currentRegionId + 1) as RegionId : 1;
@@ -1724,11 +1728,13 @@ joystick?.addEventListener('pointermove', (event) => {
   joystickY = THREE.MathUtils.clamp((event.clientY - (bounds.top + bounds.height / 2)) / (bounds.height * 0.35), -1, 1);
   if (joystickKnob) joystickKnob.style.transform = `translate(${joystickX * 26}px,${joystickY * 26}px)`;
 });
-joystick?.addEventListener('pointerup', () => {
+function resetJoystick() {
   joystickPointer = undefined;
   joystickX = joystickY = 0;
   if (joystickKnob) joystickKnob.style.transform = '';
-});
+}
+joystick?.addEventListener('pointerup', resetJoystick);
+joystick?.addEventListener('pointercancel', resetJoystick);
 
 let lastTouchX = 0;
 let lastTouchY = 0;
@@ -1753,14 +1759,16 @@ canvas.addEventListener('touchmove', (event) => {
     }
   }
 }, { passive: true });
-canvas.addEventListener('touchend', (event) => {
+function releaseCanvasTouch(event: TouchEvent) {
   for (let i = 0; i < event.changedTouches.length; i++) {
     if (event.changedTouches[i].identifier === canvasTouchId) {
       canvasTouchId = null;
       break;
     }
   }
-}, { passive: true });
+}
+canvas.addEventListener('touchend', releaseCanvasTouch, { passive: true });
+canvas.addEventListener('touchcancel', releaseCanvasTouch, { passive: true });
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
