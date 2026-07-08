@@ -1308,6 +1308,9 @@ function startGame() {
   if (gameStarted) return;
   gameStarted = true;
   start.classList.add('hidden');
+  camera.position.set(0, standingHeight, cameraBaseZ);
+  yaw = 0;
+  pitch = -0.12;
   playRegionBgm();
   if (!usesMobileControls() && !document.fullscreenElement) {
     document.querySelector<HTMLElement>('#fullscreen-prompt')!.classList.remove('hidden');
@@ -1757,15 +1760,7 @@ canvas.addEventListener('touchend', (event) => {
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   if (isTouchDevice() && innerWidth < innerHeight) return;
-  const aspect = innerWidth / innerHeight;
-  const baseFov = 72 * Math.PI / 180;
-  const baseAspect = 16 / 9;
-  const baseVFov = 2 * Math.atan(Math.tan(baseFov / 2) / baseAspect);
-  camera.fov = THREE.MathUtils.clamp(
-    2 * Math.atan(Math.tan(baseVFov / 2) * aspect) * 180 / Math.PI,
-    50, 90,
-  );
-  camera.aspect = aspect;
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize);
