@@ -1754,12 +1754,12 @@ cleanButton.addEventListener('pointercancel', stopCleaning);
 // 각 도구의 획득 비용. basicBroom은 기본 보유(비용 없음). coins 또는 gems 중 하나.
 const toolCost: Record<ToolId, { coins?: number; gems?: number }> = {
   basicBroom: {},
-  wideBroom: { coins: 40 },
-  vacuum: { coins: 100 },
-  copperSickle: { coins: 180 },
-  metalSickle: { coins: 260 },
-  pickaxe: { coins: 280 },
-  neonSickle: { gems: 120 },
+  wideBroom: { coins: 100 },
+  vacuum: { coins: 500 },
+  copperSickle: { coins: 300 },
+  metalSickle: { coins: 600 },
+  pickaxe: { coins: 500 },
+  neonSickle: { gems: 150 },
   neonPickaxe: { gems: 150 },
 };
 const upgradeBasePrices: Record<UpgradeId, number> = { cleanSpeed: 30, moveSpeed: 30, coinBonus: 40, radius: 40 };

@@ -96,7 +96,7 @@ const ko: Dict = {
   'toolDesc.copperSickle': '잔디 전용 장비',
   'toolDesc.metalSickle': '더 넓고 빠른 잔디 장비',
   'toolDesc.pickaxe': '돌 전용 장비',
-  'shop.vacuumTitle': '진공 청소기',
+  'shop.vacuumTitle': '송풍기',
 
   'upgrade.cleanSpeed.title': '청소 속도',
   'upgrade.cleanSpeed.desc': '모든 장비 청소 시간 감소',
