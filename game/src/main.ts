@@ -80,51 +80,151 @@ function box(size: [number, number, number], color: number, position: [number, n
 
 box([12, 5.5, 5], 0xffdb9f, [-10, 2.75, -10]);
 box([12.6, 0.65, 5.8], 0xe76f51, [-10, 5.8, -10]);
-for (const x of [-13, -10, -7]) box([1.6, 2.2, 0.15], 0x83cceb, [x, 3.1, -7.45]);
+// 집 디테일: 창문(테두리·창살·창턱), 현관문, 굴뚝
+for (const x of [-13, -10, -7]) {
+  box([1.9, 2.5, 0.1], 0x8a5a33, [x, 3.1, -7.49]);   // 창문 테두리
+  box([1.6, 2.2, 0.15], 0x83cceb, [x, 3.1, -7.45]);  // 유리
+  box([0.08, 2.2, 0.17], 0xf7f2e6, [x, 3.1, -7.44]); // 세로 창살
+  box([1.6, 0.08, 0.17], 0xf7f2e6, [x, 3.1, -7.44]); // 가로 창살
+  box([1.9, 0.12, 0.3], 0xf7f2e6, [x, 1.92, -7.38]); // 창턱
+}
+box([1.5, 2.7, 0.1], 0x6b4426, [-5.3, 1.35, -7.48]);   // 문틀
+box([1.24, 2.5, 0.14], 0x8a5a33, [-5.3, 1.25, -7.45]); // 현관문
+box([0.1, 0.1, 0.1], 0xf2c14e, [-4.87, 1.25, -7.36]);  // 손잡이
+box([1.9, 0.2, 1.1], 0xcfc0a5, [-5.3, 0.1, -7.1]);     // 현관 계단
+box([0.95, 1.7, 0.95], 0xb0563a, [-13.2, 6.7, -10.6]); // 굴뚝
+box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
+// 울타리: 기둥 + 2단 레일 + 기둥 캡
 for (let x = -21; x <= 21; x += 2.1) {
   box([0.14, 1.7, 0.18], 0xf4ead5, [x, 0.85, -18]);
   box([2.1, 0.15, 0.15], 0xf4ead5, [x, 0.55, -17.98]);
+  box([2.1, 0.12, 0.12], 0xf4ead5, [x, 1.15, -17.98]);
+  box([0.26, 0.1, 0.3], 0xe6d8bc, [x, 1.76, -18]);
 }
 
 // 배경 나무: 그래픽 품질에 따라 폴리곤 디테일을 바꿔 다시 생성할 수 있게 그룹으로 관리
 const treeSpecs: Array<[number, number, number]> = [[13, -10, 1.15], [17, 3, 0.9], [-17, 4, 1]];
 const treeGroup = new THREE.Group();
 scene.add(treeGroup);
-function buildTrees(crownDetail: number, trunkSegments: number) {
-  treeGroup.children.forEach((child) => {
-    const mesh = child as THREE.Mesh;
-    mesh.geometry.dispose();
-    (mesh.material as THREE.Material).dispose();
+// 수관 블롭 오프셋(x, y, z, 크기 배율): 품질이 높을수록 여러 덩어리를 겹쳐 풍성하게
+const crownBlobOffsets: Array<[number, number, number, number]> = [
+  [0, 0, 0, 1],
+  [0.9, -0.5, 0.55, 0.62],
+  [-0.85, -0.45, -0.5, 0.58],
+  [0.15, 0.75, -0.7, 0.55],
+];
+function disposeGroup(group: THREE.Group) {
+  group.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      child.geometry.dispose();
+      (Array.isArray(child.material) ? child.material : [child.material]).forEach((material) => material.dispose());
+    }
   });
-  treeGroup.clear();
+  group.clear();
+}
+function buildTrees(quality: GraphicsQuality) {
+  const preset = graphicsPresets[quality];
+  disposeGroup(treeGroup);
   for (const [x, z, scale] of treeSpecs) {
     const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28 * scale, 0.4 * scale, 3.2 * scale, trunkSegments),
+      new THREE.CylinderGeometry(0.28 * scale, 0.4 * scale, 3.2 * scale, preset.trunkSegments),
       new THREE.MeshStandardMaterial({ color: 0x85532f }),
     );
     trunk.position.set(x, 1.6 * scale, z);
     trunk.castShadow = true;
     treeGroup.add(trunk);
-    const crown = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(2 * scale, crownDetail),
-      new THREE.MeshStandardMaterial({ color: 0x6eae35, flatShading: true }),
-    );
-    crown.position.set(x, 4.3 * scale, z);
-    crown.castShadow = true;
-    treeGroup.add(crown);
+    for (const [bx, by, bz, bs] of crownBlobOffsets.slice(0, preset.crownBlobs)) {
+      const crown = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(2 * scale * bs, preset.crownDetail),
+        new THREE.MeshStandardMaterial({ color: 0x6eae35, flatShading: true }),
+      );
+      crown.position.set(x + bx * scale, (4.3 + by) * scale, z + bz * scale);
+      crown.castShadow = true;
+      treeGroup.add(crown);
+    }
   }
 }
 
-// 그래픽 품질 프리셋: 배경 폴리곤 디테일 + 그림자 해상도 + 렌더 픽셀비율
+// 배경 소품(잔디 포기·바위·구름): 품질별 개수만큼 시드 고정 랜덤 배치 (품질 바꿔도 같은 자리)
+const backgroundGroup = new THREE.Group();
+scene.add(backgroundGroup);
+function buildBackgroundDetail(quality: GraphicsQuality) {
+  const preset = graphicsPresets[quality];
+  disposeGroup(backgroundGroup);
+  let seed = 20260709;
+  const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  if (preset.tuftCount > 0) {
+    // 잔디 포기: InstancedMesh 하나로 그려서 개수가 많아도 드로우콜 1회
+    const tuftGeometry = new THREE.ConeGeometry(0.09, 0.34, 5);
+    const tuftMaterial = new THREE.MeshStandardMaterial({ color: 0x55a032, roughness: 1 });
+    const tufts = new THREE.InstancedMesh(tuftGeometry, tuftMaterial, preset.tuftCount);
+    const matrix = new THREE.Matrix4();
+    const quaternion = new THREE.Quaternion();
+    const up = new THREE.Vector3(0, 1, 0);
+    let placed = 0;
+    while (placed < preset.tuftCount) {
+      const x = (rand() - 0.5) * 42;
+      const z = (rand() - 0.5) * 34;
+      if (isInsideHouse(x, z, 0.8) || Math.abs(x) < 4.4) continue; // 집·모랫길 위 제외
+      const s = 0.7 + rand() * 0.9;
+      quaternion.setFromAxisAngle(up, rand() * Math.PI);
+      matrix.compose(new THREE.Vector3(x, 0.17 * s, z), quaternion, new THREE.Vector3(s, s, s));
+      tufts.setMatrixAt(placed, matrix);
+      placed += 1;
+    }
+    tufts.instanceMatrix.needsUpdate = true;
+    tufts.receiveShadow = true;
+    backgroundGroup.add(tufts);
+  }
+  for (let i = 0; i < preset.rockCount; i += 1) {
+    let x = 0;
+    let z = 0;
+    do { x = (rand() - 0.5) * 42; z = (rand() - 0.5) * 34; } while (isInsideHouse(x, z, 1) || Math.abs(x) < 4.4);
+    const size = 0.16 + rand() * 0.24;
+    const rock = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(size, 0),
+      new THREE.MeshStandardMaterial({ color: 0x9b958a, roughness: 0.95, flatShading: true }),
+    );
+    rock.position.set(x, size * 0.6, z);
+    rock.rotation.y = rand() * Math.PI;
+    rock.castShadow = rock.receiveShadow = true;
+    backgroundGroup.add(rock);
+  }
+  for (let i = 0; i < preset.cloudCount; i += 1) {
+    const cloud = new THREE.Group();
+    const puffMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+    const puffs = 3 + Math.floor(rand() * 2);
+    for (let p = 0; p < puffs; p += 1) {
+      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1 + rand() * 1.2, 1), puffMaterial);
+      puff.position.set(p * 1.6 - puffs * 0.8, rand() * 0.5, rand() * 0.8);
+      cloud.add(puff);
+    }
+    cloud.position.set((rand() - 0.5) * 46, 13.5 + rand() * 3.5, (rand() - 0.5) * 36);
+    backgroundGroup.add(cloud);
+  }
+}
+
+// 그래픽 품질 프리셋: 배경 폴리곤 디테일 + 소품 개수 + 그림자 해상도 + 렌더 픽셀비율
 type GraphicsQuality = 'low' | 'medium' | 'high';
-const graphicsPresets: Record<GraphicsQuality, { crownDetail: number; trunkSegments: number; shadowMapSize: number; pixelRatio: number }> = {
-  low: { crownDetail: 1, trunkSegments: 7, shadowMapSize: 1024, pixelRatio: 1.25 },
-  medium: { crownDetail: 2, trunkSegments: 10, shadowMapSize: 2048, pixelRatio: 1.5 },
-  high: { crownDetail: 4, trunkSegments: 16, shadowMapSize: 4096, pixelRatio: 2 },
+interface GraphicsPreset {
+  crownDetail: number;
+  crownBlobs: number;
+  trunkSegments: number;
+  tuftCount: number;
+  rockCount: number;
+  cloudCount: number;
+  shadowMapSize: number;
+  pixelRatio: number;
+}
+const graphicsPresets: Record<GraphicsQuality, GraphicsPreset> = {
+  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, tuftCount: 0, rockCount: 0, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
+  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, tuftCount: 60, rockCount: 8, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
+  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, tuftCount: 140, rockCount: 14, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
 };
 function applyGraphicsQuality(quality: GraphicsQuality) {
   const preset = graphicsPresets[quality];
-  buildTrees(preset.crownDetail, preset.trunkSegments);
+  buildTrees(quality);
+  buildBackgroundDetail(quality);
   sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
   sun.shadow.map?.dispose();
   sun.shadow.map = null;
