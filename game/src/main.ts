@@ -77,21 +77,22 @@ function box(size: [number, number, number], color: number, position: [number, n
   return mesh;
 }
 
-// 집: 벽 4면 + 문 개구부로 구성해 안으로 들어갈 수 있음 (외벽면은 기존 x -16..-4, z -12.5..-7.5 유지)
-box([10.0, 5.5, 0.3], 0xffdb9f, [-11, 2.75, -7.65]);   // 앞벽 (문 왼쪽, x -16..-6)
-box([0.6, 5.5, 0.3], 0xffdb9f, [-4.3, 2.75, -7.65]);   // 앞벽 (문 오른쪽, x -4.6..-4)
-box([1.4, 2.8, 0.3], 0xffdb9f, [-5.3, 4.1, -7.65]);    // 문 위 상인방
-box([12, 5.5, 0.3], 0xffdb9f, [-10, 2.75, -12.35]);    // 뒷벽
-box([0.3, 5.5, 5], 0xffdb9f, [-15.85, 2.75, -10]);     // 왼쪽 벽
-box([0.3, 5.5, 5], 0xffdb9f, [-4.15, 2.75, -10]);      // 오른쪽 벽
-box([12.6, 0.65, 5.8], 0xe76f51, [-10, 5.8, -10]);     // 지붕
-box([11.4, 0.06, 4.4], 0xc9a06a, [-10, 0.03, -10]);    // 실내 바닥
-box([3.2, 0.04, 2.2], 0xa8524a, [-10, 0.07, -10]);     // 러그
+// 집: 벽 4면 + 문 개구부로 구성해 안으로 들어갈 수 있음.
+// 외벽면 x -18..-6, z -12.5..-7.5 — 산책로(x -4..4)와 정원 산울타리 라인(x -4.3)에 겹치지 않게 왼쪽으로 물러남.
+box([10.0, 5.5, 0.3], 0xffdb9f, [-13, 2.75, -7.65]);   // 앞벽 (문 왼쪽, x -18..-8)
+box([0.6, 5.5, 0.3], 0xffdb9f, [-6.3, 2.75, -7.65]);   // 앞벽 (문 오른쪽, x -6.6..-6)
+box([1.4, 2.8, 0.3], 0xffdb9f, [-7.3, 4.1, -7.65]);    // 문 위 상인방
+box([12, 5.5, 0.3], 0xffdb9f, [-12, 2.75, -12.35]);    // 뒷벽
+box([0.3, 5.5, 5], 0xffdb9f, [-17.85, 2.75, -10]);     // 왼쪽 벽
+box([0.3, 5.5, 5], 0xffdb9f, [-6.15, 2.75, -10]);      // 오른쪽 벽
+box([12.6, 0.65, 5.8], 0xe76f51, [-12, 5.8, -10]);     // 지붕
+box([11.4, 0.06, 4.4], 0xc9a06a, [-12, 0.03, -10]);    // 실내 바닥
+box([3.2, 0.04, 2.2], 0xa8524a, [-12, 0.07, -10]);     // 러그
 const interiorLight = new THREE.PointLight(0xffe6b8, 18, 12, 1.8);
-interiorLight.position.set(-10, 4.2, -10);
+interiorLight.position.set(-12, 4.2, -10);
 scene.add(interiorLight);
 // 집 디테일: 창문(테두리·창살·창턱), 현관문, 굴뚝
-for (const x of [-13, -10, -7]) {
+for (const x of [-15, -12, -9]) {
   box([1.9, 2.5, 0.1], 0x8a5a33, [x, 3.1, -7.49]);   // 창문 테두리
   box([1.6, 2.2, 0.15], 0x83cceb, [x, 3.1, -7.45]);  // 유리
   box([0.08, 2.2, 0.17], 0xf7f2e6, [x, 3.1, -7.44]); // 세로 창살
@@ -99,10 +100,10 @@ for (const x of [-13, -10, -7]) {
   box([1.9, 0.12, 0.3], 0xf7f2e6, [x, 1.92, -7.38]); // 창턱
 }
 // 현관문: 경첩(피벗)에 달려 있어 가까이 가면 자동으로 열림
-box([0.12, 2.8, 0.4], 0x6b4426, [-6.03, 1.4, -7.65]);  // 문설주 좌
-box([0.12, 2.8, 0.4], 0x6b4426, [-4.57, 1.4, -7.65]);  // 문설주 우
+box([0.12, 2.8, 0.4], 0x6b4426, [-8.03, 1.4, -7.65]);  // 문설주 좌
+box([0.12, 2.8, 0.4], 0x6b4426, [-6.57, 1.4, -7.65]);  // 문설주 우
 const doorPivot = new THREE.Group();
-doorPivot.position.set(-5.95, 0, -7.65);
+doorPivot.position.set(-7.95, 0, -7.65);
 scene.add(doorPivot);
 const doorPanel = new THREE.Mesh(
   new THREE.BoxGeometry(1.3, 2.55, 0.1),
@@ -119,13 +120,13 @@ doorKnob.position.set(1.15, 1.25, 0.09);
 doorPivot.add(doorKnob);
 let doorOpenAmount = 0;
 let doorIsOpen = false;
-box([1.9, 0.2, 1.1], 0xcfc0a5, [-5.3, 0.1, -7.1]);     // 현관 계단
-box([0.95, 1.7, 0.95], 0xb0563a, [-13.2, 6.7, -10.6]); // 굴뚝
-box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
+box([1.9, 0.2, 1.1], 0xcfc0a5, [-7.3, 0.1, -7.1]);     // 현관 계단
+box([0.95, 1.7, 0.95], 0xb0563a, [-15.2, 6.7, -10.6]); // 굴뚝
+box([1.15, 0.22, 1.15], 0x8f4430, [-15.2, 7.65, -10.6]); // 굴뚝 캡
 
 // 집 안 일일 보물상자 (하루 1회 F키/탭으로 개봉)
 const chestGroup = new THREE.Group();
-chestGroup.position.set(-10.5, 0, -10);
+chestGroup.position.set(-12.5, 0, -10);
 // 상자 정면(자물쇠 쪽, +Z)이 현관문 쪽을 향하도록 90도 회전 (러그 위에 딱 맞게)
 chestGroup.rotation.y = Math.PI / 2;
 scene.add(chestGroup);
@@ -253,20 +254,20 @@ function applyGraphicsQuality(quality: GraphicsQuality) {
 
 const cleanables: Cleanable[] = [];
 const leafColors = [0xe9682c, 0xf6b82f, 0xb84b27, 0xef8d22];
-const houseBounds = { minX: -16.3, maxX: -3.7, minZ: -12.8, maxZ: -7.15 };
+const houseBounds = { minX: -18.3, maxX: -5.7, minZ: -12.8, maxZ: -7.15 };
 
 function isInsideHouse(x: number, z: number, padding = 0) {
   return x > houseBounds.minX - padding && x < houseBounds.maxX + padding
     && z > houseBounds.minZ - padding && z < houseBounds.maxZ + padding;
 }
 
-// 플레이어 이동 충돌용 벽 목록(문 개구부 x -6.0..-4.6 제외). isInsideHouse는 오브젝트 스폰 제외용으로 유지.
+// 플레이어 이동 충돌용 벽 목록(문 개구부 x -8.0..-6.6 제외). isInsideHouse는 오브젝트 스폰 제외용으로 유지.
 const wallRects = [
-  { minX: -16, maxX: -6.0, minZ: -7.8, maxZ: -7.5 },   // 앞벽 좌
-  { minX: -4.6, maxX: -4, minZ: -7.8, maxZ: -7.5 },    // 앞벽 우
-  { minX: -16, maxX: -4, minZ: -12.5, maxZ: -12.2 },   // 뒷벽
-  { minX: -16, maxX: -15.7, minZ: -12.5, maxZ: -7.5 }, // 왼쪽 벽
-  { minX: -4.3, maxX: -4, minZ: -12.5, maxZ: -7.5 },   // 오른쪽 벽
+  { minX: -18, maxX: -8.0, minZ: -7.8, maxZ: -7.5 },   // 앞벽 좌
+  { minX: -6.6, maxX: -6, minZ: -7.8, maxZ: -7.5 },    // 앞벽 우
+  { minX: -18, maxX: -6, minZ: -12.5, maxZ: -12.2 },   // 뒷벽
+  { minX: -18, maxX: -17.7, minZ: -12.5, maxZ: -7.5 }, // 왼쪽 벽
+  { minX: -6.3, maxX: -6, minZ: -12.5, maxZ: -7.5 },   // 오른쪽 벽
 ];
 function hitsWall(x: number, z: number, padding = 0) {
   return wallRects.some((wall) =>
@@ -534,11 +535,12 @@ function populateRegion(regionId: RegionId, state: RegionProgressState) {
     else createCan(...randomOpenPosition());
   }
   for (let i = 0; i < (counts.grass ?? 0); i++) createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
-  for (let i = 0; i < (counts.stone ?? 0); i++) createStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
+  // x/z 범위가 집 왼쪽으로 이동한 뒤로도 집 앞면(z -7.15)과 겹치지 않도록 z 시작점을 -6.5로 뒤로 뺌.
+  for (let i = 0; i < (counts.stone ?? 0); i++) createStone(-18 + Math.random() * 7, -6.5 + Math.random() * 16.5);
   for (let i = 0; i < (counts.goldCan ?? 0); i++) createGoldCan(...randomOpenPosition());
   for (let i = 0; i < (counts.goldChest ?? 0); i++) createChest('goldChest', ...randomOpenPosition());
   for (let i = 0; i < (counts.gemChest ?? 0); i++) createChest('gemChest', ...randomOpenPosition());
-  for (let i = 0; i < (counts.goldStone ?? 0); i++) createGoldStone(-18 + Math.random() * 7, -5 + Math.random() * 15);
+  for (let i = 0; i < (counts.goldStone ?? 0); i++) createGoldStone(-18 + Math.random() * 7, -6.5 + Math.random() * 16.5);
   total = state.total;
   cleaned = Math.max(0, total - cleanables.length);
 }
@@ -2173,7 +2175,7 @@ function animate() {
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
   // 현관문 자동 개폐: 문 근처(3.2m)에 오면 안쪽으로 스르륵 열림
-  const doorDistance = Math.hypot(camera.position.x + 5.3, camera.position.z + 7.6);
+  const doorDistance = Math.hypot(camera.position.x + 7.3, camera.position.z + 7.6);
   const doorShouldOpen = doorDistance < 3.2;
   if (doorShouldOpen && !doorIsOpen && gameStarted) playDoorSound();
   doorIsOpen = doorShouldOpen;
