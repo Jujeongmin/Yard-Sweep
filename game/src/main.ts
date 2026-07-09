@@ -126,7 +126,7 @@ box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
 
 // 집 안 일일 보물상자 (하루 1회 F키/탭으로 개봉)
 const chestGroup = new THREE.Group();
-chestGroup.position.set(-10, 0, -9.3);
+chestGroup.position.set(-10.5, 0, -10);
 // 상자 정면(자물쇠 쪽, +Z)이 현관문 쪽을 향하도록 90도 회전 (러그 위에 딱 맞게)
 chestGroup.rotation.y = Math.PI / 2;
 scene.add(chestGroup);
