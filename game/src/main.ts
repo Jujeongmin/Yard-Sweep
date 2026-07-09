@@ -798,6 +798,7 @@ interface SaveData {
   settings: GameSettings;
   tutorial: number;
   chestDayClaimed: number;
+  adsRemoved: boolean;
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
@@ -819,6 +820,7 @@ const defaultSave: SaveData = {
   settings: { ...defaultSettings },
   tutorial: 0,
   chestDayClaimed: -1,
+  adsRemoved: false,
 };
 function loadSave(): SaveData {
   try {
@@ -840,6 +842,7 @@ function loadSave(): SaveData {
       settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
       chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
+      adsRemoved: Boolean(parsed.adsRemoved),
     };
   } catch { return structuredClone(defaultSave); }
 }
@@ -1092,6 +1095,9 @@ const regionAdStatus = document.querySelector<HTMLElement>('#region-ad-status')!
 let pendingAdRewardCoins = 0;
 let pendingAdRewardGems = 0;
 let pendingAdDoubled = false;
+// 광고 제거(VX 상점)를 구매하면 광고 없이 2배 보상이 자동 지급된다.
+// 실제 광고 SDK 연동 시: 이 플래그가 false일 때만 진짜 광고를 재생하도록 훅을 걸면 됨.
+let adsRemoved = saveData.adsRemoved;
 let noticeTimer = 0;
 
 const BGM_BASE_VOLUME = 0.28;
@@ -1202,6 +1208,7 @@ function persist() {
     settings,
     tutorial: tutorialStep,
     chestDayClaimed,
+    adsRemoved,
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
 }
@@ -1457,9 +1464,14 @@ function completeRegion() {
   checkMissionsAndAchievements();
   persist();
   regionCompleteCard.classList.remove('hidden');
-  regionAdDoubleBtn.classList.remove('hidden');
-  regionAdDoubleBtn.disabled = false;
-  regionAdStatus.classList.add('hidden');
+  if (adsRemoved) {
+    // 광고 제거 구매자는 시청/대기 없이 2배 보상이 즉시 자동 지급됨
+    grantAdDoubleReward(true);
+  } else {
+    regionAdDoubleBtn.classList.remove('hidden');
+    regionAdDoubleBtn.disabled = false;
+    regionAdStatus.classList.add('hidden');
+  }
   document.exitPointerLock?.();
 }
 
@@ -1651,30 +1663,41 @@ regionCompleteCard.addEventListener('click', () => {
   if (!usesMobileControls()) canvas.requestPointerLock?.();
 });
 
-regionAdDoubleBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
+// 2배 보상 실제 지급. instant=true면 대기 없이 즉시(광고 제거 구매자용),
+// 그렇지 않으면 광고 SDK 없이 "재생 중" 표시 후 잠시 뒤 지급하는 시뮬레이션.
+function grantAdDoubleReward(instant = false) {
   if (pendingAdDoubled) return;
   pendingAdDoubled = true;
-  // 광고 SDK 없이 시뮬레이션: "재생 중" 표시 후 잠시 뒤 2배 보상 지급
-  regionAdDoubleBtn.disabled = true;
-  regionAdStatus.classList.remove('hidden');
-  regionAdStatus.textContent = t('ad.playing');
-  window.setTimeout(() => {
+  const apply = () => {
     coins += pendingAdRewardCoins;
     gems += pendingAdRewardGems;
     stats.coinsEarned += Math.floor(pendingAdRewardCoins);
     updateHud(pendingAdRewardCoins, pendingAdRewardGems);
     persist();
     regionAdDoubleBtn.classList.add('hidden');
+    regionAdStatus.classList.remove('hidden');
     regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
-  }, 1200);
+  };
+  if (instant) { apply(); return; }
+  regionAdDoubleBtn.disabled = true;
+  regionAdStatus.classList.remove('hidden');
+  regionAdStatus.textContent = t('ad.playing');
+  window.setTimeout(apply, 1200);
+}
+regionAdDoubleBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  grantAdDoubleReward();
 });
 
+// VX(실결제) 상품: 실제 결제 연동 전까지는 공통으로 "coming soon" 안내.
+// '광고 제거'(data-vx="remove-ads")는 결제 연동 후 이 버튼 대신 실제 구매 완료 콜백에서
+// `adsRemoved = true; persist(); refreshShop();` 를 호출하도록 연결하면 됨 (적용 로직은 이미 동작).
 document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
   btn.addEventListener('click', () => {
     showNotice(t('vxshop.comingSoon'));
   });
 });
+const removeAdsButton = document.querySelector<HTMLButtonElement>('#buy-remove-ads')!;
 // 보석 → 골드(코인) 교환
 document.querySelectorAll<HTMLButtonElement>('.exchange-gold').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -1823,6 +1846,9 @@ function refreshShop() {
   robotVacuumButton.textContent = robotVacuumOwned ? t('shop.owned') : '💎 200';
   robotVacuumButton.disabled = robotVacuumOwned;
   robotVacuumButton.classList.toggle('owned', robotVacuumOwned);
+  removeAdsButton.textContent = adsRemoved ? t('shop.owned') : 'VX';
+  removeAdsButton.disabled = adsRemoved;
+  removeAdsButton.classList.toggle('owned', adsRemoved);
 }
 function toggleShop(force?: boolean) {
   shopOpen = force ?? !shopOpen;

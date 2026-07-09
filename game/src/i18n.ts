@@ -120,6 +120,9 @@ const ko: Dict = {
   'vxshop.gemPack2.desc': 'VX로 구매',
   'vxshop.gemPack3.title': '보석 1200개',
   'vxshop.gemPack3.desc': 'VX로 구매',
+  'vxshop.removeAds.title': '광고 제거',
+  'vxshop.removeAds.desc': '지역완료 2배 보상이 광고 없이 즉시 자동 지급됩니다',
+  'notice.adsRemoved': '광고 제거 구매 완료! 앞으로 2배 보상이 자동 지급됩니다.',
 
   'region.lockedHint': '이전 지역 완료 시 해금',
   'region.progressLabel': '진행도 {pct}%',
@@ -320,6 +323,9 @@ const en: Dict = {
   'vxshop.gemPack2.desc': 'Buy with VX',
   'vxshop.gemPack3.title': '1200 Gems',
   'vxshop.gemPack3.desc': 'Buy with VX',
+  'vxshop.removeAds.title': 'Remove Ads',
+  'vxshop.removeAds.desc': 'Region-clear 2x reward is granted instantly, no ad required',
+  'notice.adsRemoved': 'Ads removed! 2x rewards will now apply automatically.',
 
   'region.lockedHint': 'Unlocks after the previous region',
   'region.progressLabel': '{pct}% complete',
