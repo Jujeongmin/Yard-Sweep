@@ -119,6 +119,7 @@ const doorKnob = new THREE.Mesh(
 doorKnob.position.set(1.15, 1.25, 0.09);
 doorPivot.add(doorKnob);
 let doorOpenAmount = 0;
+let doorIsOpen = false;
 box([1.9, 0.2, 1.1], 0xcfc0a5, [-5.3, 0.1, -7.1]);     // 현관 계단
 box([0.95, 1.7, 0.95], 0xb0563a, [-13.2, 6.7, -10.6]); // 굴뚝
 box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
@@ -1106,6 +1107,7 @@ const REGION_COMPLETE_BASE_VOLUME = 0.75;
 const COIN_BASE_VOLUME = 0.55;
 const FOOTSTEP_BASE_VOLUME = 0.35;
 const CLEANING_BASE_VOLUME = 0.6;
+const DOOR_BASE_VOLUME = 0.6;
 
 const bgmTracks = [0, 1, 2].map((index) => new Audio(`/assets/bgm-${index}.mp3`));
 bgmTracks.forEach((audio) => { audio.loop = true; });
@@ -1114,6 +1116,11 @@ const regionCompleteSound = new Audio('/assets/region-complete-sound.mp3');
 const coinSound = new Audio('/assets/coin-sound.mp3');
 const footstepSound = new Audio('/assets/footstep-sound.mp3');
 footstepSound.loop = true;
+const doorSound = new Audio('/assets/door-sound.mp3');
+function playDoorSound() {
+  doorSound.currentTime = 0;
+  void doorSound.play().catch(() => undefined);
+}
 function playCoinSound() {
   coinSound.currentTime = 0;
   void coinSound.play().catch(() => undefined);
@@ -1135,6 +1142,7 @@ function applyAudioSettings() {
   regionCompleteSound.volume = REGION_COMPLETE_BASE_VOLUME * settings.sfxVolume;
   coinSound.volume = COIN_BASE_VOLUME * settings.sfxVolume;
   footstepSound.volume = FOOTSTEP_BASE_VOLUME * settings.sfxVolume;
+  doorSound.volume = DOOR_BASE_VOLUME * settings.sfxVolume;
   Object.values(cleaningSounds).forEach((audio) => { audio.volume = CLEANING_BASE_VOLUME * settings.sfxVolume; });
   robotVacuumSound.volume = CLEANING_BASE_VOLUME * 0.5 * settings.sfxVolume;
 }
@@ -2167,7 +2175,10 @@ function animate() {
   camera.rotation.x = pitch;
   // 현관문 자동 개폐: 문 근처(3.2m)에 오면 안쪽으로 스르륵 열림
   const doorDistance = Math.hypot(camera.position.x + 5.3, camera.position.z + 7.6);
-  const doorTarget = doorDistance < 3.2 ? 1.95 : 0;
+  const doorShouldOpen = doorDistance < 3.2;
+  if (doorShouldOpen && !doorIsOpen && gameStarted) playDoorSound();
+  doorIsOpen = doorShouldOpen;
+  const doorTarget = doorShouldOpen ? 1.95 : 0;
   doorOpenAmount += (doorTarget - doorOpenAmount) * Math.min(1, delta * 5);
   doorPivot.rotation.y = doorOpenAmount;
   // 콤보 타이머 감소
