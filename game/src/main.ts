@@ -1232,6 +1232,7 @@ function completeRegion() {
   persist();
   regionCompleteCard.classList.remove('hidden');
   regionAdDoubleBtn.classList.remove('hidden');
+  regionAdDoubleBtn.disabled = false;
   regionAdStatus.classList.add('hidden');
   document.exitPointerLock?.();
 }
@@ -1427,19 +1428,37 @@ regionAdDoubleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (pendingAdDoubled) return;
   pendingAdDoubled = true;
-  coins += pendingAdRewardCoins;
-  gems += pendingAdRewardGems;
-  stats.coinsEarned += Math.floor(pendingAdRewardCoins);
-  updateHud(pendingAdRewardCoins, pendingAdRewardGems);
-  persist();
-  regionAdDoubleBtn.classList.add('hidden');
+  // 광고 SDK 없이 시뮬레이션: "재생 중" 표시 후 잠시 뒤 2배 보상 지급
+  regionAdDoubleBtn.disabled = true;
   regionAdStatus.classList.remove('hidden');
-  regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
+  regionAdStatus.textContent = t('ad.playing');
+  window.setTimeout(() => {
+    coins += pendingAdRewardCoins;
+    gems += pendingAdRewardGems;
+    stats.coinsEarned += Math.floor(pendingAdRewardCoins);
+    updateHud(pendingAdRewardCoins, pendingAdRewardGems);
+    persist();
+    regionAdDoubleBtn.classList.add('hidden');
+    regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
+  }, 1200);
 });
 
 document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
   btn.addEventListener('click', () => {
     showNotice(t('vxshop.comingSoon'));
+  });
+});
+// 보석 → 골드(코인) 교환
+document.querySelectorAll<HTMLButtonElement>('.exchange-gold').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const needGems = Number(btn.dataset.gems);
+    const gainCoins = Number(btn.dataset.coins);
+    if (gems < needGems) { showNotice(t('notice.notEnoughGems')); return; }
+    gems -= needGems;
+    coins += gainCoins;
+    persist();
+    refreshShop();
+    showNotice(t('notice.goldExchanged', { coins: gainCoins }));
   });
 });
 document.addEventListener('click', (event) => {

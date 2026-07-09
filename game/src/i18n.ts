@@ -184,6 +184,14 @@ const ko: Dict = {
 
   'vxshop.comingSoon': 'VX Shop은 배포 후 이용 가능합니다.',
   'ad.doubleApplied': '2x 보상 적용! (+{coins} 코인, +{gems} 보석)',
+  'ad.playing': '광고 재생 중...',
+  'tab.vxshop': 'VX 상점',
+  'premium.exchangeTitle': '보석 → 골드 교환',
+  'exchange.gold1.title': '골드 500',
+  'exchange.gold1.desc': '보석 5개로 교환',
+  'exchange.gold2.title': '골드 2,500',
+  'exchange.gold2.desc': '보너스 +25% (보석 20개)',
+  'notice.goldExchanged': '골드 {coins}개 획득!',
 };
 
 const en: Dict = {
@@ -368,6 +376,14 @@ const en: Dict = {
 
   'vxshop.comingSoon': 'VX Shop will be available after deployment.',
   'ad.doubleApplied': '2x reward applied! (+{coins} coins, +{gems} gems)',
+  'ad.playing': 'Playing ad...',
+  'tab.vxshop': 'VX Shop',
+  'premium.exchangeTitle': 'Gems → Gold',
+  'exchange.gold1.title': 'Gold 500',
+  'exchange.gold1.desc': 'Trade 5 gems',
+  'exchange.gold2.title': 'Gold 2,500',
+  'exchange.gold2.desc': 'Bonus +25% (20 gems)',
+  'notice.goldExchanged': 'Gained {coins} gold!',
 };
 
 const translations: Record<Locale, Dict> = { ko, en };
