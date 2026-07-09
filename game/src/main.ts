@@ -472,8 +472,8 @@ pickaxeTool.add(boxBetween(pickaxeMount, pickaxeLeftMid, 0.13, 0.08, pickaxeMeta
 pickaxeTool.add(boxBetween(pickaxeLeftMid, pickaxeLeftTip, 0.08, 0.06, pickaxeMetalMaterial));
 pickaxeTool.add(boxBetween(pickaxeMount, pickaxeRightMid, 0.13, 0.08, pickaxeMetalMaterial));
 pickaxeTool.add(boxBetween(pickaxeRightMid, pickaxeRightTip, 0.08, 0.06, pickaxeMetalMaterial));
-pickaxeTool.rotation.set(0, 0, 0.25);
-pickaxeTool.position.z = -0.75;
+pickaxeTool.rotation.set(0.3, -1.2, -1.3);
+pickaxeTool.position.z = -0.4;
 
 const vacuumTool = new THREE.Group();
 const vacuumHandle = new THREE.Mesh(
@@ -517,8 +517,8 @@ function buildSickle(bladeColor: number, handleColor: number, sizeScale: number)
   group.add(cylinderBetween(grip, bladeBase, 0.045 * sizeScale, 0.03 * sizeScale, handleMaterial));
   group.add(boxBetween(bladeBase, bladeMid, 0.22 * sizeScale, 0.045 * sizeScale, bladeMaterial));
   group.add(boxBetween(bladeMid, bladeTip, 0.16 * sizeScale, 0.045 * sizeScale, bladeMaterial));
-  group.rotation.set(0, 0, -0.88);
-  group.position.y = -0.18;
+  group.rotation.set(-0.8, 0, -2);
+  group.position.y = -0.65;
   return group;
 }
 const copperSickleTool = buildSickle(0xc07a3e, 0x6b4127, 0.72);
