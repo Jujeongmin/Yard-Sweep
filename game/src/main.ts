@@ -1889,15 +1889,19 @@ function animate() {
     movement.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const previousX = camera.position.x;
     const previousZ = camera.position.z;
-    camera.position.addScaledVector(movement, 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta);
-    camera.position.x = THREE.MathUtils.clamp(camera.position.x, -20, 20);
-    camera.position.z = THREE.MathUtils.clamp(camera.position.z, -16, 16);
+    const step = 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta;
+    let nextX = THREE.MathUtils.clamp(previousX + movement.x * step, -20, 20);
+    let nextZ = THREE.MathUtils.clamp(previousZ + movement.z * step, -16, 16);
+    // 벽 슬라이딩: 대각선으로 집에 닿으면 막히는 축만 멈추고 나머지 축은 계속 이동
+    if (isInsideHouse(nextX, nextZ, 0.35)) {
+      if (!isInsideHouse(nextX, previousZ, 0.35)) nextZ = previousZ;      // z쪽 벽 → x축으로 미끄러짐
+      else if (!isInsideHouse(previousX, nextZ, 0.35)) nextX = previousX; // x쪽 벽 → z축으로 미끄러짐
+      else { nextX = previousX; nextZ = previousZ; }                      // 모서리 등 둘 다 막힘 → 정지
+    }
+    camera.position.x = nextX;
+    camera.position.z = nextZ;
     tutorialMoveDist += camera.position.distanceTo(new THREE.Vector3(previousX, 0, previousZ));
     if (tutorialMoveDist >= 4 && tutorialStep === 1) advanceTutorial();
-    if (isInsideHouse(camera.position.x, camera.position.z, 0.35)) {
-      camera.position.x = previousX;
-      camera.position.z = previousZ;
-    }
   }
   if (isMoving) {
     if (footstepSound.paused) void footstepSound.play().catch(() => undefined);
