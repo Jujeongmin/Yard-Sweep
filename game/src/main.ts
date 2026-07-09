@@ -122,6 +122,35 @@ let doorOpenAmount = 0;
 box([1.9, 0.2, 1.1], 0xcfc0a5, [-5.3, 0.1, -7.1]);     // 현관 계단
 box([0.95, 1.7, 0.95], 0xb0563a, [-13.2, 6.7, -10.6]); // 굴뚝
 box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
+
+// 집 안 일일 보물상자 (하루 1회 F키/탭으로 개봉)
+const chestGroup = new THREE.Group();
+chestGroup.position.set(-10, 0, -9.3);
+scene.add(chestGroup);
+const chestWoodMat = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.7 });
+const chestGoldMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.55, roughness: 0.35 });
+const chestBody = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.62, 0.8), chestWoodMat);
+chestBody.position.y = 0.31; chestBody.castShadow = chestBody.receiveShadow = true;
+chestGroup.add(chestBody);
+for (const bx of [-0.42, 0.42]) {
+  const band = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.64, 0.82), chestGoldMat);
+  band.position.set(bx, 0.31, 0); chestGroup.add(band);
+}
+const chestLock = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.2, 0.08), chestGoldMat);
+chestLock.position.set(0, 0.42, 0.42); chestGroup.add(chestLock);
+const chestLid = new THREE.Group();
+chestLid.position.set(0, 0.62, -0.4); // 뒤쪽 경첩
+chestGroup.add(chestLid);
+const chestLidMesh = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.24, 0.8), chestWoodMat);
+chestLidMesh.position.set(0, 0.12, 0.4); chestLidMesh.castShadow = true;
+chestLid.add(chestLidMesh);
+const chestLidBand = new THREE.Mesh(new THREE.BoxGeometry(1.17, 0.1, 0.1), chestGoldMat);
+chestLidBand.position.set(0, 0.12, 0.78); chestLid.add(chestLidBand);
+const chestGlow = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.13, 0),
+  new THREE.MeshBasicMaterial({ color: 0xffe27a }),
+);
+chestGlow.position.set(0, 1.15, 0); chestGroup.add(chestGlow);
 // 울타리: 기둥 + 2단 레일 + 기둥 캡
 for (let x = -21; x <= 21; x += 2.1) {
   box([0.14, 1.7, 0.18], 0xf4ead5, [x, 0.85, -18]);
@@ -783,6 +812,7 @@ interface SaveData {
   robotVacuumOwned: boolean;
   settings: GameSettings;
   tutorial: number;
+  chestDayClaimed: number;
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
@@ -803,6 +833,7 @@ const defaultSave: SaveData = {
   robotVacuumOwned: false,
   settings: { ...defaultSettings },
   tutorial: 0,
+  chestDayClaimed: -1,
 };
 function loadSave(): SaveData {
   try {
@@ -823,12 +854,74 @@ function loadSave(): SaveData {
       robotVacuumOwned: Boolean(parsed.robotVacuumOwned),
       settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
+      chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
     };
   } catch { return structuredClone(defaultSave); }
 }
 const saveData = loadSave();
 let coins = saveData.coins;
 let gems = saveData.gems;
+
+// ── 콤보: 끊기지 않고 연속 청소하면 배수가 붙는다 (COMBO_WINDOW 초 안에 다음 청소) ──
+const COMBO_WINDOW = 3;
+let comboCount = 0;
+let comboTimer = 0;
+const comboEl = document.querySelector<HTMLElement>('#combo')!;
+const comboCountEl = document.querySelector<HTMLElement>('#combo-count')!;
+const comboMultEl = document.querySelector<HTMLElement>('#combo-mult')!;
+const comboBarEl = document.querySelector<HTMLElement>('#combo-bar')!;
+function comboMultiplier() {
+  return 1 + Math.min(Math.floor(comboCount / 3), 8) * 0.25; // 3연속마다 +0.25, 최대 x3
+}
+function registerComboClean() {
+  comboCount += 1;
+  comboTimer = COMBO_WINDOW;
+  if (comboCount >= 2) {
+    comboEl.classList.remove('hidden');
+    comboCountEl.textContent = String(comboCount);
+    comboMultEl.textContent = `x${comboMultiplier()}`;
+    comboEl.classList.remove('pop');
+    void comboEl.offsetWidth; // 리플로우로 애니메이션 재시작
+    comboEl.classList.add('pop');
+  }
+}
+function tickCombo(delta: number) {
+  if (comboTimer <= 0) return;
+  comboTimer -= delta;
+  comboBarEl.style.transform = `scaleX(${Math.max(0, comboTimer / COMBO_WINDOW)})`;
+  if (comboTimer <= 0) {
+    comboCount = 0;
+    comboEl.classList.add('hidden');
+  }
+}
+
+// ── 일일 보물상자: 하루 1회 개봉, UTC 자정 기준 리셋 ──
+let chestDayClaimed = saveData.chestDayClaimed;
+let chestLidAngle = 0;
+const interactHintEl = document.querySelector<HTMLButtonElement>('#interact-hint')!;
+function todayIndex() { return Math.floor(Date.now() / 86400000); }
+function chestAvailable() { return chestDayClaimed !== todayIndex(); }
+function openChest() {
+  if (!chestAvailable()) return;
+  chestDayClaimed = todayIndex();
+  const bonusCoins = 150 + Math.floor(Math.random() * 351); // 150~500
+  const bonusGems = Math.random() < 0.5 ? 2 + Math.floor(Math.random() * 4) : 0; // 50% 확률 2~5
+  coins += bonusCoins;
+  gems += bonusGems;
+  stats.coinsEarned += bonusCoins;
+  updateHud(bonusCoins, bonusGems);
+  checkMissionsAndAchievements();
+  persist();
+  showNotice(t('notice.chestOpened'));
+  interactHintEl.classList.add('hidden');
+}
+// 초기 뚜껑/반짝임 상태
+if (!chestAvailable()) { chestLidAngle = -1.9; chestGlow.visible = false; }
+chestLid.rotation.x = chestLidAngle;
+interactHintEl.addEventListener('click', () => { if (chestAvailable() && playerNearChest()) openChest(); });
+function playerNearChest() {
+  return Math.hypot(camera.position.x - chestGroup.position.x, camera.position.z - chestGroup.position.z) < 2.6;
+}
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 // TEST: 모든 지역 해금 (테스트용 — 배포/커밋 전 아래 원본 줄로 되돌리기)
 // let unlockedRegion = saveData.unlockedRegion;
@@ -1123,6 +1216,7 @@ function persist() {
     robotVacuumOwned,
     settings,
     tutorial: tutorialStep,
+    chestDayClaimed,
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
 }
@@ -1385,9 +1479,10 @@ function completeRegion() {
 
 function removeObject(object: Cleanable) {
   object.userData.cleaned = true;
+  registerComboClean();
   const definition = objects[object.userData.kind];
   const reward = definition.reward > 0
-    ? definition.reward * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier()
+    ? definition.reward * (1 + upgrades.coinBonus * 0.2) * coinBoostMultiplier() * comboMultiplier()
     : 0;
   const gemReward = definition.gemReward ?? 0;
   coins += reward;
@@ -1645,6 +1740,10 @@ window.addEventListener('keydown', (event) => {
     return;
   }
   if (shopOpen || settingsOpen) return;
+  if (event.code === 'KeyF' && chestAvailable() && playerNearChest()) {
+    openChest();
+    return;
+  }
   keys.add(event.code);
   if (event.code.startsWith('Digit')) {
     const num = Number(event.code.slice(5));
@@ -2031,6 +2130,24 @@ function animate() {
   const doorTarget = doorDistance < 3.2 ? 1.95 : 0;
   doorOpenAmount += (doorTarget - doorOpenAmount) * Math.min(1, delta * 5);
   doorPivot.rotation.y = doorOpenAmount;
+  // 콤보 타이머 감소
+  tickCombo(delta);
+  // 보물상자: 반짝임(개봉 가능 시)·뚜껑 개폐·근접 힌트
+  const chestOpen = chestAvailable();
+  chestGlow.visible = chestOpen;
+  if (chestOpen) {
+    chestGlow.rotation.y += delta * 1.6;
+    chestGlow.position.y = 1.12 + Math.sin(clock.elapsedTime * 2.4) * 0.06;
+  }
+  chestLidAngle += ((chestOpen ? 0 : -1.9) - chestLidAngle) * Math.min(1, delta * 6);
+  chestLid.rotation.x = chestLidAngle;
+  if (gameStarted && !shopOpen && !settingsOpen && playerNearChest()) {
+    interactHintEl.classList.remove('hidden');
+    interactHintEl.textContent = chestOpen ? t('hint.chestOpen') : t('hint.chestClaimed');
+    interactHintEl.classList.toggle('claimed', !chestOpen);
+  } else {
+    interactHintEl.classList.add('hidden');
+  }
   updateCleaning(delta);
   updateRobotVacuum(delta);
   updateRobotVacuumVisual();

@@ -225,6 +225,41 @@ button { font: inherit; }
   font-weight: 800; color: rgba(255,255,255,.9);
 }
 
+/* ── Combo ── */
+.combo {
+  position: fixed; z-index: 5; right: clamp(12px,3vw,32px);
+  top: clamp(120px,22vw,180px); width: clamp(96px,16vw,150px);
+  padding: clamp(6px,1vw,10px) clamp(8px,1.4vw,14px);
+  border-radius: var(--radius-md); text-align: center;
+  background: linear-gradient(180deg, rgba(255,138,0,.92), rgba(230,80,30,.92));
+  box-shadow: 0 6px 18px rgba(230,80,30,.4); pointer-events: none;
+  transition: opacity .2s;
+}
+.combo.hidden { opacity: 0; }
+.combo-top { display: flex; align-items: baseline; justify-content: center; gap: 4px; color: #fff; line-height: 1; }
+.combo-top b { font-size: var(--fs-xl); }
+.combo-top span { font-size: var(--fs-xs); letter-spacing: 1px; opacity: .9; }
+.combo-top em { font-size: var(--fs-md); font-style: normal; font-weight: 900; color: #fff2a8; }
+.combo.pop { animation: combo-pop .25s ease; }
+@keyframes combo-pop { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+#combo-bar {
+  display: block; height: 5px; margin-top: 5px; border-radius: 3px;
+  background: #fff2a8; transform-origin: left center; transform: scaleX(1);
+}
+
+/* ── Interaction hint (chest) ── */
+.interact-hint {
+  position: fixed; z-index: 6; left: 50%; top: 52%;
+  transform: translate(-50%,-50%);
+  padding: clamp(7px,1.1vw,10px) clamp(14px,2.2vw,20px); border: 0;
+  border-radius: var(--radius-md); cursor: pointer;
+  background: rgba(13,31,42,.82); color: #ffe27a;
+  font-size: var(--fs-md); font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.interact-hint.hidden { display: none; }
+.interact-hint.claimed { color: #cbd5cf; cursor: default; }
+
 /* ── Start / Region complete cards ── */
 .start-card {
   position: fixed; z-index: 10; left: 50%; top: 50%; transform: translate(-50%,-50%);
