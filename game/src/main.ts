@@ -8,7 +8,6 @@ import {
   objects,
   regionCompletionRewards,
   regions,
-  toolOrder,
   tools,
   type AchievementId,
   type CategoryId,
@@ -914,9 +913,7 @@ function playerNearChest() {
   return Math.hypot(camera.position.x - chestGroup.position.x, camera.position.z - chestGroup.position.z) < 2.6;
 }
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
-// TEST: 모든 지역 해금 (테스트용 — 배포/커밋 전 아래 원본 줄로 되돌리기)
-// let unlockedRegion = saveData.unlockedRegion;
-let unlockedRegion = 3 as RegionId;
+let unlockedRegion = saveData.unlockedRegion;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
@@ -1003,9 +1000,7 @@ let settingsOpen = false;
 let gameStarted = false;
 let currentToolId: ToolId = 'basicBroom';
 let currentCategory: CategoryId = 1;
-// TEST: 모든 무기 해금 (테스트용 — 배포/커밋 전 아래 한 줄로 되돌리기)
-// const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
-const unlockedTools = new Set<ToolId>(toolOrder);
+const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
 // 카테고리별 장착 도구(각 카테고리당 1개). 보유하지 않은 도구가 저장돼 있으면 해제.
 const equippedByCategory: Record<CategoryId, ToolId | null> = { ...saveData.equipped };
 categoryOrder.forEach((catId) => {
