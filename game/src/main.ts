@@ -679,7 +679,9 @@ const saveData = loadSave();
 let coins = saveData.coins;
 let gems = saveData.gems;
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
-let unlockedRegion = saveData.unlockedRegion;
+// TEST: 모든 지역 해금 (테스트용 — 배포/커밋 전 아래 원본 줄로 되돌리기)
+// let unlockedRegion = saveData.unlockedRegion;
+let unlockedRegion = 3 as RegionId;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
