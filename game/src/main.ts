@@ -86,23 +86,50 @@ for (let x = -21; x <= 21; x += 2.1) {
   box([2.1, 0.15, 0.15], 0xf4ead5, [x, 0.55, -17.98]);
 }
 
-function tree(x: number, z: number, scale = 1) {
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.28 * scale, 0.4 * scale, 3.2 * scale, 7),
-    new THREE.MeshStandardMaterial({ color: 0x85532f }),
-  );
-  trunk.position.set(x, 1.6 * scale, z);
-  trunk.castShadow = true;
-  scene.add(trunk);
-  const crown = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(2 * scale, 1),
-    new THREE.MeshStandardMaterial({ color: 0x6eae35, flatShading: true }),
-  );
-  crown.position.set(x, 4.3 * scale, z);
-  crown.castShadow = true;
-  scene.add(crown);
+// 배경 나무: 그래픽 품질에 따라 폴리곤 디테일을 바꿔 다시 생성할 수 있게 그룹으로 관리
+const treeSpecs: Array<[number, number, number]> = [[13, -10, 1.15], [17, 3, 0.9], [-17, 4, 1]];
+const treeGroup = new THREE.Group();
+scene.add(treeGroup);
+function buildTrees(crownDetail: number, trunkSegments: number) {
+  treeGroup.children.forEach((child) => {
+    const mesh = child as THREE.Mesh;
+    mesh.geometry.dispose();
+    (mesh.material as THREE.Material).dispose();
+  });
+  treeGroup.clear();
+  for (const [x, z, scale] of treeSpecs) {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28 * scale, 0.4 * scale, 3.2 * scale, trunkSegments),
+      new THREE.MeshStandardMaterial({ color: 0x85532f }),
+    );
+    trunk.position.set(x, 1.6 * scale, z);
+    trunk.castShadow = true;
+    treeGroup.add(trunk);
+    const crown = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(2 * scale, crownDetail),
+      new THREE.MeshStandardMaterial({ color: 0x6eae35, flatShading: true }),
+    );
+    crown.position.set(x, 4.3 * scale, z);
+    crown.castShadow = true;
+    treeGroup.add(crown);
+  }
 }
-tree(13, -10, 1.15); tree(17, 3, 0.9); tree(-17, 4, 1);
+
+// 그래픽 품질 프리셋: 배경 폴리곤 디테일 + 그림자 해상도 + 렌더 픽셀비율
+type GraphicsQuality = 'low' | 'medium' | 'high';
+const graphicsPresets: Record<GraphicsQuality, { crownDetail: number; trunkSegments: number; shadowMapSize: number; pixelRatio: number }> = {
+  low: { crownDetail: 1, trunkSegments: 7, shadowMapSize: 1024, pixelRatio: 1.25 },
+  medium: { crownDetail: 2, trunkSegments: 10, shadowMapSize: 2048, pixelRatio: 1.5 },
+  high: { crownDetail: 4, trunkSegments: 16, shadowMapSize: 4096, pixelRatio: 2 },
+};
+function applyGraphicsQuality(quality: GraphicsQuality) {
+  const preset = graphicsPresets[quality];
+  buildTrees(preset.crownDetail, preset.trunkSegments);
+  sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
+  sun.shadow.map?.dispose();
+  sun.shadow.map = null;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixelRatio));
+}
 
 const cleanables: Cleanable[] = [];
 const leafColors = [0xe9682c, 0xf6b82f, 0xb84b27, 0xef8d22];
@@ -621,6 +648,7 @@ interface GameSettings {
   sfxVolume: number;
   sensitivity: number;
   vibration: boolean;
+  graphicsQuality: GraphicsQuality;
 }
 interface SaveData {
   coins: number;
@@ -641,7 +669,7 @@ interface SaveData {
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
-const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true };
+const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true, graphicsQuality: 'high' };
 const defaultSave: SaveData = {
   coins: 0,
   gems: 0,
@@ -724,6 +752,7 @@ function advanceTutorial() {
 }
 setLocale(settings.language);
 document.documentElement.lang = settings.language;
+applyGraphicsQuality(settings.graphicsQuality);
 let robotVacuumTarget: Cleanable | null = null;
 // Independent world position: the robot roams and searches on its own, it does not follow the player.
 const robotVacuumPosition = new THREE.Vector3(0, 0, 5);
@@ -1675,6 +1704,15 @@ langOptions.forEach((button) => button.addEventListener('click', () => {
   langOptions.forEach((item) => item.classList.toggle('selected', item === button));
   setLocale(settings.language);
   applyLocale();
+  persist();
+}));
+
+const qualityOptions = document.querySelectorAll<HTMLButtonElement>('.quality-option');
+qualityOptions.forEach((button) => button.classList.toggle('selected', button.dataset.quality === settings.graphicsQuality));
+qualityOptions.forEach((button) => button.addEventListener('click', () => {
+  settings.graphicsQuality = button.dataset.quality as GraphicsQuality;
+  qualityOptions.forEach((item) => item.classList.toggle('selected', item === button));
+  applyGraphicsQuality(settings.graphicsQuality);
   persist();
 }));
 
