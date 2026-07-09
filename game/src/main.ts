@@ -78,8 +78,19 @@ function box(size: [number, number, number], color: number, position: [number, n
   return mesh;
 }
 
-box([12, 5.5, 5], 0xffdb9f, [-10, 2.75, -10]);
-box([12.6, 0.65, 5.8], 0xe76f51, [-10, 5.8, -10]);
+// 집: 벽 4면 + 문 개구부로 구성해 안으로 들어갈 수 있음 (외벽면은 기존 x -16..-4, z -12.5..-7.5 유지)
+box([10.0, 5.5, 0.3], 0xffdb9f, [-11, 2.75, -7.65]);   // 앞벽 (문 왼쪽, x -16..-6)
+box([0.6, 5.5, 0.3], 0xffdb9f, [-4.3, 2.75, -7.65]);   // 앞벽 (문 오른쪽, x -4.6..-4)
+box([1.4, 2.8, 0.3], 0xffdb9f, [-5.3, 4.1, -7.65]);    // 문 위 상인방
+box([12, 5.5, 0.3], 0xffdb9f, [-10, 2.75, -12.35]);    // 뒷벽
+box([0.3, 5.5, 5], 0xffdb9f, [-15.85, 2.75, -10]);     // 왼쪽 벽
+box([0.3, 5.5, 5], 0xffdb9f, [-4.15, 2.75, -10]);      // 오른쪽 벽
+box([12.6, 0.65, 5.8], 0xe76f51, [-10, 5.8, -10]);     // 지붕
+box([11.4, 0.06, 4.4], 0xc9a06a, [-10, 0.03, -10]);    // 실내 바닥
+box([3.2, 0.04, 2.2], 0xa8524a, [-10, 0.07, -10]);     // 러그
+const interiorLight = new THREE.PointLight(0xffe6b8, 18, 12, 1.8);
+interiorLight.position.set(-10, 4.2, -10);
+scene.add(interiorLight);
 // 집 디테일: 창문(테두리·창살·창턱), 현관문, 굴뚝
 for (const x of [-13, -10, -7]) {
   box([1.9, 2.5, 0.1], 0x8a5a33, [x, 3.1, -7.49]);   // 창문 테두리
@@ -88,9 +99,26 @@ for (const x of [-13, -10, -7]) {
   box([1.6, 0.08, 0.17], 0xf7f2e6, [x, 3.1, -7.44]); // 가로 창살
   box([1.9, 0.12, 0.3], 0xf7f2e6, [x, 1.92, -7.38]); // 창턱
 }
-box([1.5, 2.7, 0.1], 0x6b4426, [-5.3, 1.35, -7.48]);   // 문틀
-box([1.24, 2.5, 0.14], 0x8a5a33, [-5.3, 1.25, -7.45]); // 현관문
-box([0.1, 0.1, 0.1], 0xf2c14e, [-4.87, 1.25, -7.36]);  // 손잡이
+// 현관문: 경첩(피벗)에 달려 있어 가까이 가면 자동으로 열림
+box([0.12, 2.8, 0.4], 0x6b4426, [-6.03, 1.4, -7.65]);  // 문설주 좌
+box([0.12, 2.8, 0.4], 0x6b4426, [-4.57, 1.4, -7.65]);  // 문설주 우
+const doorPivot = new THREE.Group();
+doorPivot.position.set(-5.95, 0, -7.65);
+scene.add(doorPivot);
+const doorPanel = new THREE.Mesh(
+  new THREE.BoxGeometry(1.3, 2.55, 0.1),
+  new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.8 }),
+);
+doorPanel.position.set(0.65, 1.28, 0);
+doorPanel.castShadow = true;
+doorPivot.add(doorPanel);
+const doorKnob = new THREE.Mesh(
+  new THREE.SphereGeometry(0.06, 8, 6),
+  new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.6, roughness: 0.35 }),
+);
+doorKnob.position.set(1.15, 1.25, 0.09);
+doorPivot.add(doorKnob);
+let doorOpenAmount = 0;
 box([1.9, 0.2, 1.1], 0xcfc0a5, [-5.3, 0.1, -7.1]);     // 현관 계단
 box([0.95, 1.7, 0.95], 0xb0563a, [-13.2, 6.7, -10.6]); // 굴뚝
 box([1.15, 0.22, 1.15], 0x8f4430, [-13.2, 7.65, -10.6]); // 굴뚝 캡
@@ -153,29 +181,6 @@ function buildBackgroundDetail(quality: GraphicsQuality) {
   disposeGroup(backgroundGroup);
   let seed = 20260709;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  if (preset.tuftCount > 0) {
-    // 잔디 포기: InstancedMesh 하나로 그려서 개수가 많아도 드로우콜 1회
-    const tuftGeometry = new THREE.ConeGeometry(0.09, 0.34, 5);
-    const tuftMaterial = new THREE.MeshStandardMaterial({ color: 0x55a032, roughness: 1 });
-    const tufts = new THREE.InstancedMesh(tuftGeometry, tuftMaterial, preset.tuftCount);
-    const matrix = new THREE.Matrix4();
-    const quaternion = new THREE.Quaternion();
-    const up = new THREE.Vector3(0, 1, 0);
-    let placed = 0;
-    while (placed < preset.tuftCount) {
-      const x = (rand() - 0.5) * 42;
-      const z = (rand() - 0.5) * 34;
-      if (isInsideHouse(x, z, 0.8) || Math.abs(x) < 4.4) continue; // 집·모랫길 위 제외
-      const s = 0.7 + rand() * 0.9;
-      quaternion.setFromAxisAngle(up, rand() * Math.PI);
-      matrix.compose(new THREE.Vector3(x, 0.17 * s, z), quaternion, new THREE.Vector3(s, s, s));
-      tufts.setMatrixAt(placed, matrix);
-      placed += 1;
-    }
-    tufts.instanceMatrix.needsUpdate = true;
-    tufts.receiveShadow = true;
-    backgroundGroup.add(tufts);
-  }
   for (let i = 0; i < preset.rockCount; i += 1) {
     let x = 0;
     let z = 0;
@@ -210,16 +215,15 @@ interface GraphicsPreset {
   crownDetail: number;
   crownBlobs: number;
   trunkSegments: number;
-  tuftCount: number;
   rockCount: number;
   cloudCount: number;
   shadowMapSize: number;
   pixelRatio: number;
 }
 const graphicsPresets: Record<GraphicsQuality, GraphicsPreset> = {
-  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, tuftCount: 0, rockCount: 0, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
-  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, tuftCount: 60, rockCount: 8, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
-  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, tuftCount: 140, rockCount: 14, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
+  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, rockCount: 0, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
+  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, rockCount: 8, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
+  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, rockCount: 14, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
 };
 function applyGraphicsQuality(quality: GraphicsQuality) {
   const preset = graphicsPresets[quality];
@@ -238,6 +242,19 @@ const houseBounds = { minX: -16.3, maxX: -3.7, minZ: -12.8, maxZ: -7.15 };
 function isInsideHouse(x: number, z: number, padding = 0) {
   return x > houseBounds.minX - padding && x < houseBounds.maxX + padding
     && z > houseBounds.minZ - padding && z < houseBounds.maxZ + padding;
+}
+
+// 플레이어 이동 충돌용 벽 목록(문 개구부 x -6.0..-4.6 제외). isInsideHouse는 오브젝트 스폰 제외용으로 유지.
+const wallRects = [
+  { minX: -16, maxX: -6.0, minZ: -7.8, maxZ: -7.5 },   // 앞벽 좌
+  { minX: -4.6, maxX: -4, minZ: -7.8, maxZ: -7.5 },    // 앞벽 우
+  { minX: -16, maxX: -4, minZ: -12.5, maxZ: -12.2 },   // 뒷벽
+  { minX: -16, maxX: -15.7, minZ: -12.5, maxZ: -7.5 }, // 왼쪽 벽
+  { minX: -4.3, maxX: -4, minZ: -12.5, maxZ: -7.5 },   // 오른쪽 벽
+];
+function hitsWall(x: number, z: number, padding = 0) {
+  return wallRects.some((wall) =>
+    x > wall.minX - padding && x < wall.maxX + padding && z > wall.minZ - padding && z < wall.maxZ + padding);
 }
 
 function randomOpenPosition(): [number, number] {
@@ -2009,6 +2026,11 @@ function animate() {
   camera.rotation.order = 'YXZ';
   camera.rotation.y = yaw;
   camera.rotation.x = pitch;
+  // 현관문 자동 개폐: 문 근처(3.2m)에 오면 안쪽으로 스르륵 열림
+  const doorDistance = Math.hypot(camera.position.x + 5.3, camera.position.z + 7.6);
+  const doorTarget = doorDistance < 3.2 ? 1.95 : 0;
+  doorOpenAmount += (doorTarget - doorOpenAmount) * Math.min(1, delta * 5);
+  doorPivot.rotation.y = doorOpenAmount;
   updateCleaning(delta);
   updateRobotVacuum(delta);
   updateRobotVacuumVisual();
@@ -2030,11 +2052,11 @@ function animate() {
     const step = 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta;
     let nextX = THREE.MathUtils.clamp(previousX + movement.x * step, -20, 20);
     let nextZ = THREE.MathUtils.clamp(previousZ + movement.z * step, -16, 16);
-    // 벽 슬라이딩: 대각선으로 집에 닿으면 막히는 축만 멈추고 나머지 축은 계속 이동
-    if (isInsideHouse(nextX, nextZ, 0.35)) {
-      if (!isInsideHouse(nextX, previousZ, 0.35)) nextZ = previousZ;      // z쪽 벽 → x축으로 미끄러짐
-      else if (!isInsideHouse(previousX, nextZ, 0.35)) nextX = previousX; // x쪽 벽 → z축으로 미끄러짐
-      else { nextX = previousX; nextZ = previousZ; }                      // 모서리 등 둘 다 막힘 → 정지
+    // 벽 슬라이딩: 대각선으로 벽에 닿으면 막히는 축만 멈추고 나머지 축은 계속 이동 (문 개구부는 통과)
+    if (hitsWall(nextX, nextZ, 0.3)) {
+      if (!hitsWall(nextX, previousZ, 0.3)) nextZ = previousZ;      // z쪽 벽 → x축으로 미끄러짐
+      else if (!hitsWall(previousX, nextZ, 0.3)) nextX = previousX; // x쪽 벽 → z축으로 미끄러짐
+      else { nextX = previousX; nextZ = previousZ; }                // 모서리 등 둘 다 막힘 → 정지
     }
     camera.position.x = nextX;
     camera.position.z = nextZ;
