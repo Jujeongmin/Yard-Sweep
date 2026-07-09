@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {
   achievements,
+  categories,
+  categoryOrder,
   missionPool,
   objects,
   regionCompletionRewards,
@@ -9,6 +11,7 @@ import {
   toolOrder,
   tools,
   type AchievementId,
+  type CategoryId,
   type MissionId,
   type ObjectKind,
   type RegionId,
@@ -626,6 +629,7 @@ interface SaveData {
   unlockedRegion: RegionId;
   regionProgress: Partial<Record<RegionId, RegionProgressState>>;
   unlockedTools: ToolId[];
+  equipped: Record<CategoryId, ToolId | null>;
   upgrades: Record<UpgradeId, number>;
   stats: PlayerStats;
   missionProgress: Record<MissionId, number>;
@@ -645,6 +649,7 @@ const defaultSave: SaveData = {
   unlockedRegion: 1,
   regionProgress: {},
   unlockedTools: ['basicBroom'],
+  equipped: { 1: 'basicBroom', 2: null, 3: null },
   upgrades: { cleanSpeed: 0, moveSpeed: 0, coinBonus: 0, radius: 0 },
   stats: { ...defaultStats },
   missionProgress: { ...defaultMissionProgress },
@@ -664,6 +669,7 @@ function loadSave(): SaveData {
       unlockedRegion: ([1, 2, 3].includes(Number(parsed.unlockedRegion)) ? Number(parsed.unlockedRegion) : 1) as RegionId,
       regionProgress: parsed.regionProgress ?? {},
       unlockedTools: Array.isArray(parsed.unlockedTools) ? parsed.unlockedTools : ['basicBroom'],
+      equipped: { ...defaultSave.equipped, ...(parsed.equipped ?? {}) },
       upgrades: { ...defaultSave.upgrades, ...(parsed.upgrades ?? {}) },
       stats: { ...defaultStats, ...(parsed.stats ?? {}) },
       missionProgress: { ...defaultMissionProgress, ...(parsed.missionProgress ?? {}) },
@@ -766,9 +772,16 @@ let shopOpen = false;
 let settingsOpen = false;
 let gameStarted = false;
 let currentToolId: ToolId = 'basicBroom';
+let currentCategory: CategoryId = 1;
 // TEST: 모든 무기 해금 (테스트용 — 배포/커밋 전 아래 한 줄로 되돌리기)
 // const unlockedTools = new Set<ToolId>(saveData.unlockedTools);
 const unlockedTools = new Set<ToolId>(toolOrder);
+// 카테고리별 장착 도구(각 카테고리당 1개). 보유하지 않은 도구가 저장돼 있으면 해제.
+const equippedByCategory: Record<CategoryId, ToolId | null> = { ...saveData.equipped };
+categoryOrder.forEach((catId) => {
+  const equipped = equippedByCategory[catId];
+  if (equipped && !unlockedTools.has(equipped)) equippedByCategory[catId] = null;
+});
 const upgrades = saveData.upgrades;
 const keys = new Set<string>();
 const clock = new THREE.Clock();
@@ -784,6 +797,17 @@ const toolUi: Record<ToolId, { size: number; icon: string }> = {
   pickaxe: { size: 112, icon: '⛏' },
   neonSickle: { size: 188, icon: '☾' },
   neonPickaxe: { size: 132, icon: '⛏' },
+};
+// HUD 인벤토리 슬롯에 표시할 도구 아이콘 이미지
+const toolImage: Record<ToolId, string> = {
+  basicBroom: '/assets/Broom-2.png',
+  wideBroom: '/assets/Broom-1.png',
+  vacuum: '/assets/VacuumImg.png',
+  copperSickle: '/assets/Sickle-1.png',
+  metalSickle: '/assets/Sickle-0.png',
+  pickaxe: '/assets/PickImg.png',
+  neonSickle: '/assets/SickleSkinImg.png',
+  neonPickaxe: '/assets/PickSkinImg.png',
 };
 
 const coinsEl = document.querySelector('#coins')!;
@@ -944,6 +968,7 @@ function persist() {
     unlockedRegion,
     regionProgress,
     unlockedTools: [...unlockedTools],
+    equipped: { ...equippedByCategory },
     upgrades,
     stats,
     missionProgress,
@@ -1046,16 +1071,49 @@ function updateToolHintUi(toolId: ToolId) {
   radiusEl.querySelector('span')!.textContent = `${ui.icon} ${t(tool.name)}`;
   hint.textContent = t('hint.toolTargets', { tool: t(tool.name), targets: tool.validTargets.map((kind) => t(objects[kind].label)).join(', ') });
 }
+// 인벤토리 3슬롯(카테고리)의 아이콘/라벨/활성 표시 갱신
+function refreshInventoryBar() {
+  categoryOrder.forEach((catId) => {
+    const slot = document.querySelector<HTMLElement>(`.slot[data-slot="${catId}"]`);
+    if (!slot) return;
+    const toolId = equippedByCategory[catId];
+    const img = slot.querySelector('img');
+    const label = slot.querySelector('small');
+    if (toolId) {
+      if (img) { img.setAttribute('src', toolImage[toolId]); (img as HTMLElement).style.visibility = 'visible'; }
+      if (label) label.textContent = t(tools[toolId].name);
+      slot.classList.remove('locked');
+    } else {
+      if (img) (img as HTMLElement).style.visibility = 'hidden';
+      if (label) label.textContent = t(categories[catId].name);
+      slot.classList.add('locked');
+    }
+    slot.classList.toggle('active', catId === currentCategory && !!toolId);
+  });
+}
+
+// 상점에서 도구를 "장착" → 해당 카테고리의 활성 도구로 지정하고 즉시 전환
 function equipTool(toolId: ToolId) {
   if (!unlockedTools.has(toolId)) {
     showNotice(t('notice.toolLocked', { name: t(tools[toolId].name) }));
     return;
   }
+  equippedByCategory[tools[toolId].category] = toolId;
+  persist();
+  selectCategory(tools[toolId].category);
+}
+
+// 인벤토리 슬롯(키 1~3) 선택 → 그 카테고리에 장착된 도구로 전환
+function selectCategory(categoryId: CategoryId) {
+  const toolId = equippedByCategory[categoryId];
+  if (!toolId) {
+    showNotice(t('notice.noToolInCategory'));
+    return;
+  }
   stopCleaning();
+  currentCategory = categoryId;
   currentToolId = toolId;
-  const tool = tools[toolId];
-  document.querySelectorAll('.slot').forEach((slot) => slot.classList.remove('active'));
-  document.querySelector(`[data-slot="${tool.slot}"]`)?.classList.add('active');
+  refreshInventoryBar();
   updateToolHintUi(toolId);
   showToolModel(toolId);
 }
@@ -1424,17 +1482,14 @@ window.addEventListener('keydown', (event) => {
   if (shopOpen || settingsOpen) return;
   keys.add(event.code);
   if (event.code.startsWith('Digit')) {
-    const slot = Number(event.code.slice(5));
-    const toolId = toolOrder.find((id) => tools[id].slot === slot);
-    if (toolId) equipTool(toolId);
+    const num = Number(event.code.slice(5));
+    if (num >= 1 && num <= 3) selectCategory(num as CategoryId);
   }
 });
 window.addEventListener('keyup', (event) => keys.delete(event.code));
 document.querySelectorAll<HTMLElement>('.slot').forEach((slot) => {
   slot.addEventListener('click', () => {
-    const slotNumber = Number(slot.dataset.slot);
-    const toolId = toolOrder.find((id) => tools[id].slot === slotNumber);
-    if (toolId) equipTool(toolId);
+    selectCategory(Number(slot.dataset.slot) as CategoryId);
   });
 });
 
@@ -1447,32 +1502,40 @@ cleanButton.addEventListener('pointerdown', (event) => {
 cleanButton.addEventListener('pointerup', stopCleaning);
 cleanButton.addEventListener('pointercancel', stopCleaning);
 
-const toolPrices: Partial<Record<ToolId, number>> = { wideBroom: 40, vacuum: 100, copperSickle: 180, metalSickle: 260, pickaxe: 280 };
-const premiumToolPrices: Partial<Record<ToolId, number>> = { neonSickle: 120, neonPickaxe: 150 };
+// 각 도구의 획득 비용. basicBroom은 기본 보유(비용 없음). coins 또는 gems 중 하나.
+const toolCost: Record<ToolId, { coins?: number; gems?: number }> = {
+  basicBroom: {},
+  wideBroom: { coins: 40 },
+  vacuum: { coins: 100 },
+  copperSickle: { coins: 180 },
+  metalSickle: { coins: 260 },
+  pickaxe: { coins: 280 },
+  neonSickle: { gems: 120 },
+  neonPickaxe: { gems: 150 },
+};
 const upgradeBasePrices: Record<UpgradeId, number> = { cleanSpeed: 30, moveSpeed: 30, coinBonus: 40, radius: 40 };
 function upgradePrice(id: UpgradeId) { return Math.round(upgradeBasePrices[id] * Math.pow(1.65, upgrades[id])); }
 function refreshShop() {
   updateHud();
-  document.querySelectorAll<HTMLElement>('.slot').forEach((slot) => {
-    const id = toolOrder.find((toolId) => tools[toolId].slot === Number(slot.dataset.slot));
-    slot.classList.toggle('locked', !id || !unlockedTools.has(id));
-  });
-  document.querySelectorAll<HTMLButtonElement>('.buy-tool').forEach((button) => {
+  refreshInventoryBar();
+  document.querySelectorAll<HTMLButtonElement>('.tool-action').forEach((button) => {
     const id = button.dataset.tool as ToolId;
     const owned = unlockedTools.has(id);
-    button.classList.toggle('owned', owned);
-    button.textContent = owned ? t('shop.owned') : `● ${toolPrices[id] ?? 0}`;
+    const equipped = equippedByCategory[tools[id].category] === id;
+    button.classList.toggle('owned', equipped); // 장착 중일 때만 초록색
+    button.classList.toggle('equip-ready', owned && !equipped); // 보유·미장착 = 장착 가능
+    button.disabled = equipped;
+    if (!owned) {
+      const cost = toolCost[id];
+      button.textContent = cost.gems ? `💎 ${cost.gems}` : `● ${cost.coins ?? 0}`;
+    } else {
+      button.textContent = equipped ? t('shop.equipped') : t('shop.equip');
+    }
   });
   document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => {
     const id = button.dataset.upgrade as UpgradeId;
     button.textContent = upgrades[id] >= 10 ? 'MAX' : `● ${upgradePrice(id)}`;
     document.querySelector(`#level-${id}`)!.textContent = `Lv.${upgrades[id]}`;
-  });
-  document.querySelectorAll<HTMLButtonElement>('.buy-premium-tool').forEach((button) => {
-    const id = button.dataset.tool as ToolId;
-    const owned = unlockedTools.has(id);
-    button.classList.toggle('owned', owned);
-    button.textContent = owned ? t('shop.owned') : `💎 ${premiumToolPrices[id] ?? 0}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => {
     const id = Number(button.dataset.region) as RegionId;
@@ -1653,12 +1716,29 @@ document.querySelectorAll<HTMLButtonElement>('[data-shop-tab]').forEach((button)
   document.querySelectorAll<HTMLElement>('[data-shop-content]').forEach((content) => content.classList.toggle('selected', content.dataset.shopContent === button.dataset.shopTab));
   if (button.dataset.shopTab === 'ranking') loadRankings();
 }));
-document.querySelectorAll<HTMLButtonElement>('.buy-tool').forEach((button) => button.addEventListener('click', () => {
+document.querySelectorAll<HTMLButtonElement>('.tool-action').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.tool as ToolId;
-  if (unlockedTools.has(id)) return;
-  const price = toolPrices[id] ?? Infinity;
-  if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
-  coins -= price; unlockedTools.add(id); persist(); refreshShop(); showNotice(t('notice.toolUnlocked', { name: t(tools[id].name) }));
+  // 이미 보유 중이면 → 장착
+  if (unlockedTools.has(id)) {
+    equipTool(id);
+    refreshShop();
+    return;
+  }
+  // 미보유 → 구매 (coins 또는 gems)
+  const cost = toolCost[id];
+  if (cost.gems != null) {
+    if (gems < cost.gems) { showNotice(t('notice.notEnoughGems')); return; }
+    gems -= cost.gems;
+  } else {
+    const price = cost.coins ?? 0;
+    if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
+    coins -= price;
+  }
+  unlockedTools.add(id);
+  // 해당 카테고리에 장착된 게 없으면 구매 즉시 자동 장착
+  if (!equippedByCategory[tools[id].category]) equipTool(id); else persist();
+  refreshShop();
+  showNotice(t('notice.toolUnlocked', { name: t(tools[id].name) }));
 }));
 document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.upgrade as UpgradeId;
@@ -1666,18 +1746,6 @@ document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) =>
   const price = upgradePrice(id);
   if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
   coins -= price; upgrades[id] += 1; persist(); refreshShop(); equipTool(currentToolId); showNotice(t('notice.upgradeComplete'));
-}));
-document.querySelectorAll<HTMLButtonElement>('.buy-premium-tool').forEach((button) => button.addEventListener('click', () => {
-  const id = button.dataset.tool as ToolId;
-  if (unlockedTools.has(id)) return;
-  const price = premiumToolPrices[id] ?? Infinity;
-  if (gems < price) { showNotice(t('notice.notEnoughGems')); return; }
-  gems -= price;
-  unlockedTools.add(id);
-  persist();
-  refreshShop();
-  equipTool(id);
-  showNotice(t('notice.toolUnlocked', { name: t(tools[id].name) }));
 }));
 document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => button.addEventListener('click', () => {
   const id = Number(button.dataset.region) as RegionId;
@@ -1775,7 +1843,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 enterRegion(currentRegionId);
-equipTool('basicBroom');
+selectCategory(1);
 initRanking();
 
 function animate() {

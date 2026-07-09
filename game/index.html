@@ -24,14 +24,9 @@
           <span id="progress-text">0%</span>
         </div>
         <div class="inventory" data-i18n-aria="label.inventory" aria-label="장비 인벤토리">
-          <button class="slot active" data-slot="1"><kbd>1</kbd><img src="/assets/Broom-2.png" alt="" /><small data-i18n="tool.basicBroom">기본 빗자루</small></button>
-          <button class="slot locked" data-slot="2"><kbd>2</kbd><img src="/assets/Broom-1.png" alt="" /><small data-i18n="tool.wideBroom">큰 빗자루</small></button>
-          <button class="slot locked" data-slot="3"><kbd>3</kbd><img src="/assets/VacuumImg.png" alt="" /><small data-i18n="tool.vacuum">송풍기</small></button>
-          <button class="slot locked" data-slot="4"><kbd>4</kbd><img src="/assets/Sickle-1.png" alt="" /><small data-i18n="tool.copperSickle">구리 낫</small></button>
-          <button class="slot locked" data-slot="5"><kbd>5</kbd><img src="/assets/Sickle-0.png" alt="" /><small data-i18n="tool.metalSickle">금속 낫</small></button>
-          <button class="slot locked" data-slot="6"><kbd>6</kbd><img src="/assets/PickImg.png" alt="" /><small data-i18n="tool.pickaxe">곡괭이</small></button>
-          <button class="slot locked" data-slot="7"><kbd>7</kbd><img src="/assets/SickleSkinImg.png" alt="" /><small data-i18n="tool.neonSickle">네온 낫</small></button>
-          <button class="slot locked" data-slot="8"><kbd>8</kbd><img src="/assets/PickSkinImg.png" alt="" /><small data-i18n="tool.neonPickaxe">네온 곡괭이</small></button>
+          <button class="slot active" data-slot="1"><kbd>1</kbd><img src="/assets/Broom-2.png" alt="" /><small data-i18n="category.cleaning">청소</small></button>
+          <button class="slot locked" data-slot="2"><kbd>2</kbd><img src="/assets/Sickle-1.png" alt="" /><small data-i18n="category.grass">잔디</small></button>
+          <button class="slot locked" data-slot="3"><kbd>3</kbd><img src="/assets/PickImg.png" alt="" /><small data-i18n="category.stone">돌</small></button>
         </div>
         <div class="stat timer hud-actions-start"><span class="timer-icon">⏱</span><strong id="region-timer">00:00</strong></div>
         <div class="icon-button"><button class="round-button" id="shop-button" data-i18n-aria="aria.shop" aria-label="상점">🛒</button><span class="button-key">Tab</span></div>
@@ -74,11 +69,17 @@
           <header><div><small>YARD SUPPLY</small><h2 data-i18n="shop.title">마당 상점</h2></div><div class="shop-balance"><span>●</span> <b id="shop-coins">0</b>　💎 <b id="shop-gems">0</b></div><button id="shop-close" data-i18n-aria="aria.shopClose" aria-label="상점 닫기">×</button></header>
           <div class="shop-tabs"><button class="selected" data-shop-tab="tools" data-i18n="tab.tools">장비</button><button data-shop-tab="upgrades" data-i18n="tab.upgrades">강화</button><button data-shop-tab="regions" data-i18n="tab.regions">지역</button><button data-shop-tab="missions" data-i18n="tab.missions">미션</button><button data-shop-tab="achievements" data-i18n="tab.achievements">업적</button><button data-shop-tab="ranking" data-i18n="tab.ranking">랭킹</button><button data-shop-tab="premium" data-i18n="tab.premium">프리미엄</button></div>
           <div class="shop-content selected" data-shop-content="tools">
-            <article><img src="/assets/Broom-1.png" alt=""><div><h3 data-i18n="tool.wideBroom">더 큰 빗자루</h3><p data-i18n="toolDesc.wideBroom">넓은 범위</p></div><button class="buy-tool" data-tool="wideBroom">● 40</button></article>
-            <article><img src="/assets/VacuumImg.png" alt=""><div><h3 data-i18n="shop.vacuumTitle">진공 청소기</h3><p data-i18n="toolDesc.vacuum">청소 속도 2.1배</p></div><button class="buy-tool" data-tool="vacuum">● 100</button></article>
-            <article><img src="/assets/Sickle-1.png" alt=""><div><h3 data-i18n="tool.copperSickle">구리 낫</h3><p data-i18n="toolDesc.copperSickle">잔디 전용 장비</p></div><button class="buy-tool" data-tool="copperSickle">● 180</button></article>
-            <article><img src="/assets/Sickle-0.png" alt=""><div><h3 data-i18n="tool.metalSickle">금속 낫</h3><p data-i18n="toolDesc.metalSickle">더 넓고 빠른 잔디 장비</p></div><button class="buy-tool" data-tool="metalSickle">● 260</button></article>
-            <article><img src="/assets/PickImg.png" alt=""><div><h3 data-i18n="tool.pickaxe">곡괭이</h3><p data-i18n="toolDesc.pickaxe">돌 전용 장비</p></div><button class="buy-tool" data-tool="pickaxe">● 280</button></article>
+            <h4 class="shop-category">🧹 <span data-i18n="category.cleaning">낙엽·캔 청소</span></h4>
+            <article><img src="/assets/Broom-2.png" alt=""><div><h3 data-i18n="tool.basicBroom">기본 빗자루</h3><p data-i18n="toolDesc.basicBroom">기본 청소 도구</p></div><button class="tool-action" data-tool="basicBroom">장착</button></article>
+            <article><img src="/assets/Broom-1.png" alt=""><div><h3 data-i18n="tool.wideBroom">더 큰 빗자루</h3><p data-i18n="toolDesc.wideBroom">넓은 범위</p></div><button class="tool-action" data-tool="wideBroom">● 40</button></article>
+            <article><img src="/assets/VacuumImg.png" alt=""><div><h3 data-i18n="shop.vacuumTitle">진공 청소기</h3><p data-i18n="toolDesc.vacuum">청소 속도 2.1배</p></div><button class="tool-action" data-tool="vacuum">● 100</button></article>
+            <h4 class="shop-category">🌿 <span data-i18n="category.grass">잔디</span></h4>
+            <article><img src="/assets/Sickle-1.png" alt=""><div><h3 data-i18n="tool.copperSickle">구리 낫</h3><p data-i18n="toolDesc.copperSickle">잔디 전용 장비</p></div><button class="tool-action" data-tool="copperSickle">● 180</button></article>
+            <article><img src="/assets/Sickle-0.png" alt=""><div><h3 data-i18n="tool.metalSickle">금속 낫</h3><p data-i18n="toolDesc.metalSickle">더 넓고 빠른 잔디 장비</p></div><button class="tool-action" data-tool="metalSickle">● 260</button></article>
+            <article><img src="/assets/SickleSkinImg.png" alt=""><div><h3 data-i18n="tool.neonSickle">네온 낫</h3><p data-i18n="toolDesc.neonSickle">넓고 빠른 프리미엄 잔디 장비</p></div><button class="tool-action" data-tool="neonSickle">💎 120</button></article>
+            <h4 class="shop-category">🪨 <span data-i18n="category.stone">돌</span></h4>
+            <article><img src="/assets/PickImg.png" alt=""><div><h3 data-i18n="tool.pickaxe">곡괭이</h3><p data-i18n="toolDesc.pickaxe">돌 전용 장비</p></div><button class="tool-action" data-tool="pickaxe">● 280</button></article>
+            <article><img src="/assets/PickSkinImg.png" alt=""><div><h3 data-i18n="tool.neonPickaxe">네온 곡괭이</h3><p data-i18n="toolDesc.neonPickaxe">이동 가능한 프리미엄 돌 장비</p></div><button class="tool-action" data-tool="neonPickaxe">💎 150</button></article>
           </div>
           <div class="shop-content" data-shop-content="upgrades">
             <article><span class="shop-glyph">⚡</span><div><h3><span data-i18n="upgrade.cleanSpeed.title">청소 속도</span> <em id="level-cleanSpeed">Lv.0</em></h3><p data-i18n="upgrade.cleanSpeed.desc">모든 장비 청소 시간 감소</p></div><button class="buy-upgrade" data-upgrade="cleanSpeed">● 30</button></article>
@@ -87,8 +88,6 @@
             <article><span class="shop-glyph">◎</span><div><h3><span data-i18n="upgrade.radius.title">청소 범위</span> <em id="level-radius">Lv.0</em></h3><p data-i18n="upgrade.radius.desc">청소 범위 8% 증가</p></div><button class="buy-upgrade" data-upgrade="radius">● 40</button></article>
           </div>
           <div class="shop-content" data-shop-content="premium">
-            <article><img src="/assets/SickleSkinImg.png" alt=""><div><h3 data-i18n="tool.neonSickle">네온 낫</h3><p data-i18n="toolDesc.neonSickle">넓고 빠른 프리미엄 잔디 장비</p></div><button class="buy-premium-tool" data-tool="neonSickle">💎 120</button></article>
-            <article><img src="/assets/PickSkinImg.png" alt=""><div><h3 data-i18n="tool.neonPickaxe">네온 곡괭이</h3><p data-i18n="toolDesc.neonPickaxe">이동 가능한 프리미엄 돌 장비</p></div><button class="buy-premium-tool" data-tool="neonPickaxe">💎 150</button></article>
             <article><span class="shop-glyph">🔥</span><div><h3 data-i18n="premium.coinBoost.title">코인 부스터</h3><p data-i18n="premium.coinBoost.desc">30분간 코인 획득 +100%</p></div><button id="buy-coin-boost">💎 30</button></article>
             <article><img src="/assets/RobotVacuumImg.png" alt=""><div><h3 data-i18n="premium.robotVacuum.title">로봇청소기</h3><p data-i18n="premium.robotVacuum.desc">보유 시 주변 오브젝트를 자동으로 청소 (5초/개)</p></div><button id="buy-robot-vacuum">💎 200</button></article>
             <article><span class="shop-glyph">💎</span><div><h3 data-i18n="vxshop.gemPack1.title">보석 100개</h3><p data-i18n="vxshop.gemPack1.desc">VX로 구매</p></div><button class="buy-vx-gem disabled" data-vx="gem-100" disabled>VX</button></article>

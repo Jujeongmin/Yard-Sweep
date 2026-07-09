@@ -1,9 +1,14 @@
 export type ObjectKind = 'leaf' | 'can' | 'grass' | 'stone' | 'goldCan' | 'goldChest' | 'gemChest' | 'goldStone';
 export type ToolId = 'basicBroom' | 'wideBroom' | 'vacuum' | 'copperSickle' | 'metalSickle' | 'pickaxe' | 'neonSickle' | 'neonPickaxe';
 
+// 인벤토리는 3개 카테고리 슬롯으로 구성된다. 각 카테고리마다 장착(equip)한 도구 1개만 활성.
+// 1 = 낙엽/캔 청소, 2 = 잔디, 3 = 돌
+export type CategoryId = 1 | 2 | 3;
+
 export interface ToolDefinition {
   id: ToolId;
   slot: number;
+  category: CategoryId;
   name: string;
   radius: number;
   speed: number;
@@ -21,15 +26,30 @@ export interface ObjectDefinition {
 
 // `name`/`label` fields below are i18n keys (see src/i18n.ts), not display text — resolve with t().
 export const tools: Record<ToolId, ToolDefinition> = {
-  basicBroom: { id: 'basicBroom', slot: 1, name: 'tool.basicBroom', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
-  wideBroom: { id: 'wideBroom', slot: 2, name: 'tool.wideBroom', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
-  vacuum: { id: 'vacuum', slot: 3, name: 'tool.vacuum', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'], model: '/assets/Vacuum.glb' },
-  copperSickle: { id: 'copperSickle', slot: 4, name: 'tool.copperSickle', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
-  metalSickle: { id: 'metalSickle', slot: 5, name: 'tool.metalSickle', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
-  pickaxe: { id: 'pickaxe', slot: 6, name: 'tool.pickaxe', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest'] },
-  neonSickle: { id: 'neonSickle', slot: 7, name: 'tool.neonSickle', radius: 3.45, speed: 2.15, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'], model: '/assets/SickleSkin.glb' },
-  neonPickaxe: { id: 'neonPickaxe', slot: 8, name: 'tool.neonPickaxe', radius: 2.15, speed: 1.55, canMoveWhileCleaning: true, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest'], model: '/assets/PickSkin.glb' },
+  basicBroom: { id: 'basicBroom', slot: 1, category: 1, name: 'tool.basicBroom', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
+  wideBroom: { id: 'wideBroom', slot: 2, category: 1, name: 'tool.wideBroom', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'] },
+  vacuum: { id: 'vacuum', slot: 3, category: 1, name: 'tool.vacuum', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest'], model: '/assets/Vacuum.glb' },
+  copperSickle: { id: 'copperSickle', slot: 4, category: 2, name: 'tool.copperSickle', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
+  metalSickle: { id: 'metalSickle', slot: 5, category: 2, name: 'tool.metalSickle', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'] },
+  pickaxe: { id: 'pickaxe', slot: 6, category: 3, name: 'tool.pickaxe', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest'] },
+  neonSickle: { id: 'neonSickle', slot: 7, category: 2, name: 'tool.neonSickle', radius: 3.45, speed: 2.15, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest'], model: '/assets/SickleSkin.glb' },
+  neonPickaxe: { id: 'neonPickaxe', slot: 8, category: 3, name: 'tool.neonPickaxe', radius: 2.15, speed: 1.55, canMoveWhileCleaning: true, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest'], model: '/assets/PickSkin.glb' },
 };
+
+export interface CategoryDefinition {
+  id: CategoryId;
+  name: string; // i18n key
+  icon: string; // HUD emoji
+  tools: ToolId[]; // 하위 정렬 순서(구매/장착 목록에 이 순서로 노출)
+}
+
+export const categories: Record<CategoryId, CategoryDefinition> = {
+  1: { id: 1, name: 'category.cleaning', icon: '🧹', tools: ['basicBroom', 'wideBroom', 'vacuum'] },
+  2: { id: 2, name: 'category.grass', icon: '🌿', tools: ['copperSickle', 'metalSickle', 'neonSickle'] },
+  3: { id: 3, name: 'category.stone', icon: '🪨', tools: ['pickaxe', 'neonPickaxe'] },
+};
+
+export const categoryOrder: CategoryId[] = [1, 2, 3];
 
 export const objects: Record<ObjectKind, ObjectDefinition> = {
   leaf: { label: 'object.leaf', cleanTime: 0.45, reward: 1 },

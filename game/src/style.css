@@ -308,7 +308,15 @@ button { font: inherit; }
   color: #4c3b08; background: #ffd843; font-size: var(--fs-xs); cursor: pointer;
 }
 .shop-content article>button.owned { color: white; background: #68a75a; }
+.shop-content article>button.equip-ready { color: white; background: #3f8ecc; }
 .shop-content article>button:disabled { cursor: not-allowed; opacity: .65; box-shadow: none; }
+.shop-content .shop-category {
+  grid-column: 1 / -1;
+  display: flex; gap: 6px; align-items: center;
+  margin: var(--gap-sm) 0 0; padding-bottom: 2px;
+  color: #55934a; font-size: var(--fs-sm); font-weight: 700;
+  border-bottom: 1px solid #e2e6df;
+}
 .shop-panel footer {
   padding: clamp(6px,1vw,9px); text-align: center;
   color: #718078; font-size: var(--fs-xs); background: #eef3e5;
