@@ -1176,6 +1176,22 @@ function isTouchDevice() {
   return matchMedia('(pointer: coarse)').matches;
 }
 
+// F11이나 브라우저 자체 전체화면 버튼은 Fullscreen API를 거치지 않아
+// document.fullscreenElement가 설정되지 않는다. 뷰포트가 화면 전체를
+// 채우는지로 이런 "수동" 전체화면도 함께 감지한다.
+function isEffectivelyFullscreen() {
+  return !!document.fullscreenElement
+    || (Math.abs(innerWidth - screen.width) < 2 && Math.abs(innerHeight - screen.height) < 2);
+}
+function refreshFullscreenBanner() {
+  const prompt = document.querySelector<HTMLElement>('#fullscreen-prompt')!;
+  if (isEffectivelyFullscreen()) {
+    prompt.classList.add('hidden');
+  } else if (!usesMobileControls() && gameStarted && !shopOpen && !settingsOpen) {
+    prompt.classList.remove('hidden');
+  }
+}
+
 function enterFullscreen() {
   if (!document.fullscreenElement) {
     try { document.documentElement.requestFullscreen(); } catch { /* ignore */ }
@@ -1622,9 +1638,7 @@ function startGame() {
     pitch = -0.12;
   }
   playRegionBgm();
-  if (!usesMobileControls() && !document.fullscreenElement) {
-    document.querySelector<HTMLElement>('#fullscreen-prompt')!.classList.remove('hidden');
-  }
+  refreshFullscreenBanner();
   if (!usesMobileControls()) canvas.requestPointerLock?.();
   if (tutorialStep === 0) {
     tutorialStep = 1;
@@ -1648,12 +1662,9 @@ start.addEventListener('click', () => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  const prompt = document.querySelector<HTMLElement>('#fullscreen-prompt')!;
+  refreshFullscreenBanner();
   if (document.fullscreenElement) {
-    prompt.classList.add('hidden');
     if (isTouchDevice() && !gameStarted) startGame();
-  } else if (!isTouchDevice() && gameStarted && !shopOpen && !settingsOpen) {
-    prompt.classList.remove('hidden');
   }
   if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
     gameStarted = false;
@@ -1733,9 +1744,7 @@ window.addEventListener('mouseup', stopCleaning);
 document.addEventListener('pointerlockchange', () => {
   if (document.pointerLockElement !== canvas && !usesMobileControls() && !shopOpen) {
     stopCleaning();
-    if (!document.fullscreenElement) {
-      document.querySelector<HTMLElement>('#fullscreen-prompt')!.classList.remove('hidden');
-    }
+    refreshFullscreenBanner();
   }
 });
 document.addEventListener('mousemove', (event) => {
@@ -2152,6 +2161,8 @@ function resize() {
   // 전환 중 세로 타이밍에 걸리면 aspect가 낡은 값으로 고정돼 화면이 확 당겨 보이는 버그가 있었음)
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
+  // F11/브라우저 자체 전체화면은 fullscreenchange 없이 resize만 발생시키므로 여기서도 재확인
+  if (gameStarted) refreshFullscreenBanner();
 }
 // 모바일 전체화면·회전은 뷰포트 크기가 비동기로 정착하므로, 즉시 + 정착 후 한 번 더 갱신
 function resizeSoon() {
