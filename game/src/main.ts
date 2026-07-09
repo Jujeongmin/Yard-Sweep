@@ -2114,11 +2114,20 @@ canvas.addEventListener('touchcancel', releaseCanvasTouch, { passive: true });
 
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
-  if (isTouchDevice() && innerWidth < innerHeight) return;
+  // aspect는 항상 실제 뷰포트에 맞춘다. (예전엔 세로 모드를 건너뛰었는데, 전체화면/회전
+  // 전환 중 세로 타이밍에 걸리면 aspect가 낡은 값으로 고정돼 화면이 확 당겨 보이는 버그가 있었음)
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
 }
+// 모바일 전체화면·회전은 뷰포트 크기가 비동기로 정착하므로, 즉시 + 정착 후 한 번 더 갱신
+function resizeSoon() {
+  resize();
+  window.setTimeout(resize, 120);
+  window.setTimeout(resize, 400);
+}
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', resizeSoon);
+document.addEventListener('fullscreenchange', resizeSoon);
 resize();
 enterRegion(currentRegionId);
 selectCategory(1);
