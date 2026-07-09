@@ -1423,6 +1423,7 @@ function completeRegion() {
   regionCompleted = true;
   delete regionProgress[currentRegionId];
   stopCleaning();
+  resetJoystick(); // 완료 카드가 뜨는 동안 조이스틱 입력이 고정되지 않도록
   bgmTracks.forEach((audio) => audio.pause());
   regionCompleteSound.currentTime = 0;
   void regionCompleteSound.play().catch(() => undefined);
@@ -1828,6 +1829,7 @@ function toggleShop(force?: boolean) {
   shop.classList.toggle('open', shopOpen);
   stopCleaning();
   keys.clear();
+  resetJoystick(); // 오버레이가 조이스틱 터치를 삼켜 전진 입력이 고정되는 것 방지
   if (shopOpen) {
     if (tutorialStep === 3) advanceTutorial();
     if (settingsOpen) toggleSettings(false);
@@ -1843,6 +1845,7 @@ function toggleSettings(force?: boolean) {
   settingsPanel.classList.toggle('open', settingsOpen);
   stopCleaning();
   keys.clear();
+  resetJoystick();
   if (settingsOpen) {
     if (shopOpen) toggleShop(false);
     document.exitPointerLock?.();
@@ -2057,6 +2060,23 @@ function resetJoystick() {
 }
 joystick?.addEventListener('pointerup', resetJoystick);
 joystick?.addEventListener('pointercancel', resetJoystick);
+// 안전망: 오버레이·브라우저 제스처·요소 숨김 등으로 조이스틱이 release 이벤트를 못 받아
+// 이동 입력이 고정(stuck)된 채 계속 전진하는 버그 방지
+joystick?.addEventListener('lostpointercapture', resetJoystick);
+window.addEventListener('pointerup', (event) => {
+  if (event.pointerId === joystickPointer) resetJoystick();
+});
+window.addEventListener('pointercancel', (event) => {
+  if (event.pointerId === joystickPointer) resetJoystick();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    resetJoystick();
+    keys.clear();
+    stopCleaning();
+  }
+});
+window.addEventListener('blur', resetJoystick);
 
 let lastTouchX = 0;
 let lastTouchY = 0;
