@@ -187,10 +187,10 @@ const ko: Dict = {
   'ad.playing': '광고 재생 중...',
   'tab.vxshop': 'VX 상점',
   'premium.exchangeTitle': '보석 → 골드 교환',
-  'exchange.gold1.title': '골드 500',
-  'exchange.gold1.desc': '보석 5개로 교환',
-  'exchange.gold2.title': '골드 2,500',
-  'exchange.gold2.desc': '보너스 +25% (보석 20개)',
+  'exchange.gold1.title': '골드 100',
+  'exchange.gold1.desc': '보석 10개로 교환',
+  'exchange.gold2.title': '골드 1,000',
+  'exchange.gold2.desc': '보석 100개로 교환',
   'notice.goldExchanged': '골드 {coins}개 획득!',
 };
 
@@ -379,10 +379,10 @@ const en: Dict = {
   'ad.playing': 'Playing ad...',
   'tab.vxshop': 'VX Shop',
   'premium.exchangeTitle': 'Gems → Gold',
-  'exchange.gold1.title': 'Gold 500',
-  'exchange.gold1.desc': 'Trade 5 gems',
-  'exchange.gold2.title': 'Gold 2,500',
-  'exchange.gold2.desc': 'Bonus +25% (20 gems)',
+  'exchange.gold1.title': 'Gold 100',
+  'exchange.gold1.desc': 'Trade 10 gems',
+  'exchange.gold2.title': 'Gold 1,000',
+  'exchange.gold2.desc': 'Trade 100 gems',
   'notice.goldExchanged': 'Gained {coins} gold!',
 };
 
