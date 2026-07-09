@@ -165,8 +165,6 @@ const ko: Dict = {
   'settings.bgmVolume': 'BGM 볼륨',
   'settings.sfxVolume': '효과음 볼륨',
   'settings.sensitivity': '마우스 감도',
-  'settings.vibration': '진동',
-  'settings.vibrationLabel': '청소 완료 시 진동',
   'settings.footer': '설정은 자동 저장됩니다',
 
   'rotate.title': '기기를 가로로 돌려주세요',
@@ -368,8 +366,6 @@ const en: Dict = {
   'settings.bgmVolume': 'BGM Volume',
   'settings.sfxVolume': 'SFX Volume',
   'settings.sensitivity': 'Mouse Sensitivity',
-  'settings.vibration': 'Vibration',
-  'settings.vibrationLabel': 'Vibrate on clean complete',
   'settings.footer': 'Settings are saved automatically',
 
   'rotate.title': 'Please rotate your device',

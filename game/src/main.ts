@@ -780,7 +780,6 @@ interface GameSettings {
   bgmVolume: number;
   sfxVolume: number;
   sensitivity: number;
-  vibration: boolean;
   graphicsQuality: GraphicsQuality;
 }
 interface SaveData {
@@ -804,7 +803,7 @@ interface SaveData {
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
-const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, vibration: true, graphicsQuality: 'high' };
+const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, graphicsQuality: 'high' };
 const defaultSave: SaveData = {
   coins: 0,
   gems: 0,
@@ -1520,7 +1519,6 @@ function removeObject(object: Cleanable) {
   tutorialCleanCount += 1;
   if (tutorialCleanCount >= 3 && tutorialStep === 2) advanceTutorial();
   persist();
-  if (settings.vibration && usesMobileControls()) navigator.vibrate?.(40);
   if (cleaned >= total) completeRegion();
   const started = performance.now();
   const initialY = object.position.y;
@@ -1931,13 +1929,6 @@ sensitivityValueEl.textContent = `${Math.round(settings.sensitivity * 100)}%`;
 sensitivitySlider.addEventListener('input', () => {
   settings.sensitivity = Number(sensitivitySlider.value) / 100;
   sensitivityValueEl.textContent = `${sensitivitySlider.value}%`;
-  persist();
-});
-
-const vibrationToggle = document.querySelector<HTMLInputElement>('#vibration-toggle')!;
-vibrationToggle.checked = settings.vibration;
-vibrationToggle.addEventListener('change', () => {
-  settings.vibration = vibrationToggle.checked;
   persist();
 });
 
