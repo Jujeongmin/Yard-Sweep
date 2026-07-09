@@ -202,7 +202,7 @@ function buildTrees(quality: GraphicsQuality) {
   }
 }
 
-// 배경 소품(잔디 포기·바위·구름): 품질별 개수만큼 시드 고정 랜덤 배치 (품질 바꿔도 같은 자리)
+// 배경 소품(구름): 품질별 개수만큼 시드 고정 랜덤 배치 (품질 바꿔도 같은 자리)
 const backgroundGroup = new THREE.Group();
 scene.add(backgroundGroup);
 function buildBackgroundDetail(quality: GraphicsQuality) {
@@ -210,20 +210,6 @@ function buildBackgroundDetail(quality: GraphicsQuality) {
   disposeGroup(backgroundGroup);
   let seed = 20260709;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < preset.rockCount; i += 1) {
-    let x = 0;
-    let z = 0;
-    do { x = (rand() - 0.5) * 42; z = (rand() - 0.5) * 34; } while (isInsideHouse(x, z, 1) || Math.abs(x) < 4.4);
-    const size = 0.16 + rand() * 0.24;
-    const rock = new THREE.Mesh(
-      new THREE.DodecahedronGeometry(size, 0),
-      new THREE.MeshStandardMaterial({ color: 0x9b958a, roughness: 0.95, flatShading: true }),
-    );
-    rock.position.set(x, size * 0.6, z);
-    rock.rotation.y = rand() * Math.PI;
-    rock.castShadow = rock.receiveShadow = true;
-    backgroundGroup.add(rock);
-  }
   for (let i = 0; i < preset.cloudCount; i += 1) {
     const cloud = new THREE.Group();
     const puffMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
@@ -244,15 +230,14 @@ interface GraphicsPreset {
   crownDetail: number;
   crownBlobs: number;
   trunkSegments: number;
-  rockCount: number;
   cloudCount: number;
   shadowMapSize: number;
   pixelRatio: number;
 }
 const graphicsPresets: Record<GraphicsQuality, GraphicsPreset> = {
-  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, rockCount: 0, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
-  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, rockCount: 8, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
-  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, rockCount: 14, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
+  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
+  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
+  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
 };
 function applyGraphicsQuality(quality: GraphicsQuality) {
   const preset = graphicsPresets[quality];
