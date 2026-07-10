@@ -274,22 +274,34 @@ function hitsWall(x: number, z: number, padding = 0) {
     x > wall.minX - padding && x < wall.maxX + padding && z > wall.minZ - padding && z < wall.maxZ + padding);
 }
 
-// 청소 불가 구조물(나무) 위/근처엔 오브젝트가 스폰되지 않도록 회피 반경 목록.
-// treeSpecs[x, z, scale] → 수관 반경(2*scale) + 여유. 울타리(z=-18)는 스폰 z범위 밖이라 제외.
-const obstacleSpots: Array<[number, number, number]> = treeSpecs.map(([x, z, s]) => [x, z, 2 * s + 0.6]);
-function isNearObstacle(x: number, z: number) {
-  return obstacleSpots.some(([ox, oz, r]) => Math.hypot(x - ox, z - oz) < r);
+// 청소 불가 구조물 회피 목록. [x, z, 반경]
+// - 정적(항상): 나무(수관 2*scale+여유), 현관 계단. 울타리(z=-18)는 스폰 z범위 밖이라 제외.
+// - 지역 장식(해당 지역에서만): 정원 산울타리·꽃(2), 돌 정원 디딤돌(3).
+const staticObstacles: Array<[number, number, number]> = [
+  ...treeSpecs.map(([x, z, s]) => [x, z, 2 * s + 0.6] as [number, number, number]),
+  [-7.3, -6.9, 1.3], // 현관 계단 (앞쪽으로 튀어나온 부분)
+];
+const decorObstacles: Partial<Record<RegionId, Array<[number, number, number]>>> = {};
+function addDecorObstacle(region: RegionId, x: number, z: number, r: number) {
+  (decorObstacles[region] ??= []).push([x, z, r]);
 }
+function nearAny(list: Array<[number, number, number]> | undefined, x: number, z: number) {
+  return !!list?.some(([ox, oz, r]) => Math.hypot(x - ox, z - oz) < r);
+}
+// 청소물 스폰 회피: 집 + 정적 구조물 + 현재 지역 장식
 function isBlockedSpawn(x: number, z: number) {
-  return isInsideHouse(x, z, 0.45) || isNearObstacle(x, z);
+  return isInsideHouse(x, z, 0.45) || nearAny(staticObstacles, x, z) || nearAny(decorObstacles[currentRegionId], x, z);
 }
 // 고정 범위 스폰(잔디/돌)도 구조물을 피하도록: 최대 20회까지 다시 뽑는다.
 function avoidObstacles(gen: () => [number, number]): [number, number] {
   let pos = gen();
-  for (let tries = 0; tries < 20 && isNearObstacle(pos[0], pos[1]); tries++) pos = gen();
+  for (let tries = 0; tries < 20 && (nearAny(staticObstacles, pos[0], pos[1]) || nearAny(decorObstacles[currentRegionId], pos[0], pos[1])); tries++) {
+    pos = gen();
+  }
   return pos;
 }
 
+// 청소물 스폰 위치 (집 + 구조물 + 현재 지역 장식 회피)
 function randomOpenPosition(): [number, number] {
   let x = 0;
   let z = 0;
@@ -297,6 +309,17 @@ function randomOpenPosition(): [number, number] {
     x = (Math.random() - 0.5) * 36;
     z = (Math.random() - 0.5) * 30;
   } while (isBlockedSpawn(x, z));
+  return [x, z];
+}
+
+// 장식(꽃/디딤돌) 배치 위치 — 집 + 정적 구조물만 회피 (장식끼리는 겹쳐도 됨)
+function randomDecorPosition(): [number, number] {
+  let x = 0;
+  let z = 0;
+  do {
+    x = (Math.random() - 0.5) * 36;
+    z = (Math.random() - 0.5) * 30;
+  } while (isInsideHouse(x, z, 0.45) || nearAny(staticObstacles, x, z));
   return [x, z];
 }
 
@@ -349,8 +372,9 @@ function flowerCluster(x: number, z: number, color: number) {
 const gardenDecor = new THREE.Group();
 const flowerColors = [0xe85f8a, 0xf2b6d4, 0x9b6fd6, 0xf7e14a];
 for (let i = 0; i < (isTouchDevice() ? 18 : 36); i++) {
-  const [x, z] = randomOpenPosition();
+  const [x, z] = randomDecorPosition();
   gardenDecor.add(flowerCluster(x, z, flowerColors[Math.floor(Math.random() * flowerColors.length)]));
+  addDecorObstacle(2, x, z, 0.8);
 }
 for (const side of [-1, 1]) {
   for (let z = -16; z <= 16; z += (isTouchDevice() ? 4.8 : 3.2)) {
@@ -361,6 +385,7 @@ for (const side of [-1, 1]) {
     hedge.position.set(side * 4.3, 0.5, z);
     hedge.castShadow = hedge.receiveShadow = true;
     gardenDecor.add(hedge);
+    addDecorObstacle(2, side * 4.3, z, 0.9);
   }
 }
 gardenDecor.visible = false;
@@ -381,8 +406,9 @@ function slabStone(x: number, z: number) {
 
 const stoneDecor = new THREE.Group();
 for (let i = 0; i < (isTouchDevice() ? 9 : 18); i++) {
-  const [x, z] = randomOpenPosition();
+  const [x, z] = randomDecorPosition();
   stoneDecor.add(slabStone(x, z));
+  addDecorObstacle(3, x, z, 0.8);
 }
 stoneDecor.visible = false;
 scene.add(stoneDecor);
