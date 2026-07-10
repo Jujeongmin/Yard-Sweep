@@ -46,12 +46,47 @@ export async function setNickname(value: string) {
 export async function resetAllData(): Promise<string | null> {
   if (!server || !connected) return t('ranking.serverNotConnected');
   try {
+    // 초기화 직후 디바운스 타이머가 옛 세이브를 다시 올리지 않도록 먼저 취소
+    pendingCloudSave = null;
+    if (cloudSaveTimer) { clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
     await server.remoteFunction('resetAllData');
     nickname = null;
     updateNicknameUI();
     return null;
   } catch (e: any) {
     return e?.message || 'Reset failed';
+  }
+}
+
+// ── 클라우드 세이브: 게임 진행 전체를 계정 상태(서버)에 저장해 다른 기기에서 이어하기 ──
+const CLOUD_SAVE_DEBOUNCE = 5000;
+let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingCloudSave: Record<string, unknown> | null = null;
+
+export function scheduleCloudSave(data: Record<string, unknown>) {
+  pendingCloudSave = data;
+  if (!server || !connected || cloudSaveTimer) return;
+  cloudSaveTimer = setTimeout(() => {
+    cloudSaveTimer = null;
+    flushCloudSave();
+  }, CLOUD_SAVE_DEBOUNCE);
+}
+
+export function flushCloudSave() {
+  if (cloudSaveTimer) { clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
+  if (!server || !connected || !pendingCloudSave) return;
+  const payload = pendingCloudSave;
+  pendingCloudSave = null;
+  server.remoteFunction('saveGameData', [payload]).catch(() => {});
+}
+
+export async function loadCloudSave(): Promise<Record<string, unknown> | null> {
+  if (!server || !connected) return null;
+  try {
+    const result = (await server.remoteFunction('loadGameData')) as { data: Record<string, unknown> | null };
+    return result?.data ?? null;
+  } catch {
+    return null;
   }
 }
 

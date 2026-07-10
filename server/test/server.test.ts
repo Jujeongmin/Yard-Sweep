@@ -50,6 +50,54 @@ describe('Server', () => {
     expect(nick).toBeNull();
   });
 
+  describe('GameSave', () => {
+    test('loadGameData returns null when nothing saved', async (server) => {
+      server.connect({ account: 'save-fresh' });
+      const result = await server.loadGameData();
+      expect(result.data).toBeNull();
+      expect(result.savedAt).toBe(0);
+    });
+
+    test('saveGameData stores and loadGameData retrieves', async (server) => {
+      server.connect({ account: 'save-player' });
+      const save = { coins: 120, gems: 3, unlockedTools: ['basicBroom', 'wideBroom'], savedAt: 1700000000000 };
+      const saved = await server.saveGameData(save);
+      expect(saved.savedAt).toBe(1700000000000);
+      const result = await server.loadGameData();
+      expect(result.data.coins).toBe(120);
+      expect(result.data.unlockedTools.length).toBe(2);
+      expect(result.savedAt).toBe(1700000000000);
+    });
+
+    test('saveGameData overwrites previous save', async (server) => {
+      server.connect({ account: 'save-player2' });
+      await server.saveGameData({ coins: 10, savedAt: 1000 });
+      await server.saveGameData({ coins: 999, savedAt: 2000 });
+      const result = await server.loadGameData();
+      expect(result.data.coins).toBe(999);
+      expect(result.savedAt).toBe(2000);
+    });
+
+    test('saveGameData rejects non-object payload', async (server) => {
+      server.connect({ account: 'save-player3' });
+      let error: any = null;
+      try {
+        await server.saveGameData(null as any);
+      } catch (e: any) {
+        error = e;
+      }
+      expect(error).toBeTruthy();
+    });
+
+    test('resetAllData clears game save', async (server) => {
+      server.connect({ account: 'save-player4' });
+      await server.saveGameData({ coins: 55, savedAt: 3000 });
+      await server.resetAllData();
+      const result = await server.loadGameData();
+      expect(result.data).toBeNull();
+    });
+  });
+
   describe('Rankings', () => {
     test('getMyRank returns -1 when no entry', async (server) => {
       server.connect({ account: 'newbie' });

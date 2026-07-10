@@ -63,9 +63,36 @@ export class Server {
     }
   }
 
+  // 게임 진행 세이브를 계정 상태($global.getMyState)에 통째로 저장한다.
+  // 충돌 해결은 클라이언트가 세이브 안의 savedAt(밀리초)을 비교해서 처리.
+  async saveGameData(data: Record<string, unknown>): Promise<{ savedAt: number }> {
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) {
+      throw new Error('Invalid save data.');
+    }
+    const json = JSON.stringify(data);
+    if (json.length > 200000) {
+      throw new Error('Save data too large.');
+    }
+    const savedAt = typeof data.savedAt === 'number' ? data.savedAt : Date.now();
+    await $global.updateMyState({ gameSave: json, gameSaveAt: savedAt });
+    return { savedAt };
+  }
+
+  async loadGameData(): Promise<{ data: Record<string, unknown> | null; savedAt: number }> {
+    const state = await $global.getMyState();
+    if (!state.gameSave) {
+      return { data: null, savedAt: 0 };
+    }
+    try {
+      return { data: JSON.parse(state.gameSave), savedAt: state.gameSaveAt || 0 };
+    } catch {
+      return { data: null, savedAt: 0 };
+    }
+  }
+
   async resetAllData(): Promise<{ success: boolean }> {
     await $global.deleteCollection('rankings');
-    await $global.updateMyState({ nickname: null });
+    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null });
     return { success: true };
   }
 

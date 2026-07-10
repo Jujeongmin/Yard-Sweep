@@ -17,7 +17,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
-import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData } from './ranking';
+import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -802,6 +802,7 @@ interface SaveData {
   tutorial: number;
   chestDayClaimed: number;
   adsRemoved: boolean;
+  savedAt: number;
 }
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
@@ -824,6 +825,7 @@ const defaultSave: SaveData = {
   tutorial: 0,
   chestDayClaimed: -1,
   adsRemoved: false,
+  savedAt: 0,
 };
 function loadSave(): SaveData {
   try {
@@ -846,6 +848,7 @@ function loadSave(): SaveData {
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
       chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
       adsRemoved: Boolean(parsed.adsRemoved),
+      savedAt: Number(parsed.savedAt) || 0,
     };
   } catch { return structuredClone(defaultSave); }
 }
@@ -1231,8 +1234,11 @@ function persist() {
     tutorial: tutorialStep,
     chestDayClaimed,
     adsRemoved,
+    savedAt: Date.now(),
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
+  // 계정(서버)에도 저장 — 다른 기기에서 이어하기 (디바운스로 몰아서 전송)
+  scheduleCloudSave(data as unknown as Record<string, unknown>);
 }
 
 function getLevelInfo() {
@@ -2107,6 +2113,7 @@ document.addEventListener('visibilitychange', () => {
     resetJoystick();
     keys.clear();
     stopCleaning();
+    flushCloudSave(); // 탭 이탈/앱 전환 시 대기 중인 클라우드 세이브 즉시 전송
   }
 });
 window.addEventListener('blur', resetJoystick);
@@ -2166,7 +2173,21 @@ document.addEventListener('fullscreenchange', resizeSoon);
 resize();
 enterRegion(currentRegionId);
 selectCategory(1);
-initRanking();
+// 서버 연결 후 계정 클라우드 세이브와 로컬 세이브를 비교해 최신 쪽을 사용한다.
+// 클라우드가 더 최신이면 로컬에 덮어쓰고 새로고침(1회)으로 적용 — 다른 기기에서 이어하기.
+initRanking().then(async () => {
+  const cloud = await loadCloudSave();
+  const cloudSavedAt = Number((cloud as { savedAt?: number } | null)?.savedAt ?? 0);
+  if (cloud && cloudSavedAt > saveData.savedAt) {
+    if (!gameStarted) {
+      localStorage.setItem('yardSweepSave', JSON.stringify(cloud));
+      location.reload();
+    }
+    return;
+  }
+  // 클라우드가 없거나 로컬이 최신이면 현재 로컬 상태를 클라우드로 올림
+  persist();
+});
 
 function animate() {
   requestAnimationFrame(animate);
