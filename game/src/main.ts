@@ -274,13 +274,29 @@ function hitsWall(x: number, z: number, padding = 0) {
     x > wall.minX - padding && x < wall.maxX + padding && z > wall.minZ - padding && z < wall.maxZ + padding);
 }
 
+// 청소 불가 구조물(나무) 위/근처엔 오브젝트가 스폰되지 않도록 회피 반경 목록.
+// treeSpecs[x, z, scale] → 수관 반경(2*scale) + 여유. 울타리(z=-18)는 스폰 z범위 밖이라 제외.
+const obstacleSpots: Array<[number, number, number]> = treeSpecs.map(([x, z, s]) => [x, z, 2 * s + 0.6]);
+function isNearObstacle(x: number, z: number) {
+  return obstacleSpots.some(([ox, oz, r]) => Math.hypot(x - ox, z - oz) < r);
+}
+function isBlockedSpawn(x: number, z: number) {
+  return isInsideHouse(x, z, 0.45) || isNearObstacle(x, z);
+}
+// 고정 범위 스폰(잔디/돌)도 구조물을 피하도록: 최대 20회까지 다시 뽑는다.
+function avoidObstacles(gen: () => [number, number]): [number, number] {
+  let pos = gen();
+  for (let tries = 0; tries < 20 && isNearObstacle(pos[0], pos[1]); tries++) pos = gen();
+  return pos;
+}
+
 function randomOpenPosition(): [number, number] {
   let x = 0;
   let z = 0;
   do {
     x = (Math.random() - 0.5) * 36;
     z = (Math.random() - 0.5) * 30;
-  } while (isInsideHouse(x, z, 0.45));
+  } while (isBlockedSpawn(x, z));
   return [x, z];
 }
 
@@ -558,13 +574,13 @@ function populateRegion(regionId: RegionId, state: RegionProgressState) {
     else if (i <= HOUSE_CAN) { createCan(...randomHousePosition()); liftLastIntoHouse(); }
     else createCan(...randomOpenPosition());
   }
-  for (let i = 0; i < (counts.grass ?? 0); i++) createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
+  for (let i = 0; i < (counts.grass ?? 0); i++) createGrass(...avoidObstacles(() => [7 + Math.random() * 8, -10 + Math.random() * 18]));
   // x/z 범위가 집 왼쪽으로 이동한 뒤로도 집 앞면(z -7.15)과 겹치지 않도록 z 시작점을 -6.5로 뒤로 뺌.
-  for (let i = 0; i < (counts.stone ?? 0); i++) createStone(-18 + Math.random() * 7, -6.5 + Math.random() * 16.5);
+  for (let i = 0; i < (counts.stone ?? 0); i++) createStone(...avoidObstacles(() => [-18 + Math.random() * 7, -6.5 + Math.random() * 16.5]));
   for (let i = 0; i < (counts.goldCan ?? 0); i++) createGoldCan(...randomOpenPosition());
   for (let i = 0; i < (counts.goldChest ?? 0); i++) createChest('goldChest', ...randomOpenPosition());
   for (let i = 0; i < (counts.gemChest ?? 0); i++) createChest('gemChest', ...randomOpenPosition());
-  for (let i = 0; i < (counts.goldStone ?? 0); i++) createGoldStone(-18 + Math.random() * 7, -6.5 + Math.random() * 16.5);
+  for (let i = 0; i < (counts.goldStone ?? 0); i++) createGoldStone(...avoidObstacles(() => [-18 + Math.random() * 7, -6.5 + Math.random() * 16.5]));
   total = state.total;
   cleaned = Math.max(0, total - cleanables.length);
 }
