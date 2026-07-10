@@ -284,6 +284,17 @@ function randomOpenPosition(): [number, number] {
   return [x, z];
 }
 
+// 집 실내 바닥에 스폰할 위치. 벽에서 0.5 안쪽으로 여유를 두고, 일일 보급상자와도 겹치지 않게.
+function randomHousePosition(): [number, number] {
+  let x = 0;
+  let z = 0;
+  do {
+    x = -17.2 + Math.random() * 10.4; // 좌우 벽 사이 (-17.2 ~ -6.8)
+    z = -11.7 + Math.random() * 3.4;  // 앞뒤 벽 사이 (-11.7 ~ -8.3)
+  } while (Math.hypot(x - chestGroup.position.x, z - chestGroup.position.z) < 1.7);
+  return [x, z];
+}
+
 // Region visual themes: front yard (grass), garden (flowers/hedges), stone garden (rock/gravel).
 const regionThemes: Record<RegionId, { sky: number; fog: number; ground: number; path: number }> = {
   1: { sky: 0x66c8f2, fog: 0x8dd4ef, ground: 0x75b94b, path: 0xd9bb83 },
@@ -515,6 +526,10 @@ let total = 0;
 type RegionObjectCounts = Record<ObjectKind, number>;
 interface RegionProgressState { remaining: Partial<RegionObjectCounts>; total: number }
 
+// 집 실내에 추가로 스폰할 청소 오브젝트 수 (빗자루로 청소 가능한 낙엽/캔)
+const HOUSE_LEAF = 6;
+const HOUSE_CAN = 2;
+
 function freshRegionCounts(regionId: RegionId): RegionObjectCounts {
   const counts = { ...regions[regionId].objectCounts };
   const rareCount = () => 1 + (Math.random() < 0.5 ? 0 : 1);
@@ -522,6 +537,9 @@ function freshRegionCounts(regionId: RegionId): RegionObjectCounts {
   counts.goldChest = rareCount();
   counts.gemChest = rareCount();
   counts.goldStone = regionId === 3 ? rareCount() : 0;
+  // 집 안 청소 오브젝트도 지역 완료 카운트에 포함
+  counts.leaf = (counts.leaf ?? 0) + HOUSE_LEAF;
+  counts.can = (counts.can ?? 0) + HOUSE_CAN;
   return counts;
 }
 
@@ -529,9 +547,15 @@ function populateRegion(regionId: RegionId, state: RegionProgressState) {
   cleanables.forEach((object) => scene.remove(object));
   cleanables.length = 0;
   const counts = state.remaining;
-  for (let i = 0; i < (counts.leaf ?? 0); i++) createLeaf(...randomOpenPosition());
+  // 집 안 오브젝트는 실내 바닥(윗면 y≈0.06) 위에 앉도록 마지막 생성물의 y를 올린다.
+  const liftLastIntoHouse = () => { cleanables[cleanables.length - 1].position.y = 0.11; };
+  for (let i = 0; i < (counts.leaf ?? 0); i++) {
+    if (i < HOUSE_LEAF) { createLeaf(...randomHousePosition()); liftLastIntoHouse(); } // 처음 몇 개는 집 안에
+    else createLeaf(...randomOpenPosition());
+  }
   for (let i = 0; i < (counts.can ?? 0); i++) {
-    if (i === 0) createCan(0, 3.1);
+    if (i === 0) createCan(0, 3.1);                            // 튜토리얼용 첫 캔은 고정 위치
+    else if (i <= HOUSE_CAN) { createCan(...randomHousePosition()); liftLastIntoHouse(); }
     else createCan(...randomOpenPosition());
   }
   for (let i = 0; i < (counts.grass ?? 0); i++) createGrass(7 + Math.random() * 8, -10 + Math.random() * 18);
