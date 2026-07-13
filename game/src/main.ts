@@ -18,6 +18,7 @@ import {
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave } from './ranking';
+import { showRewardAd, isAdBusy } from './ads';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -1762,8 +1763,7 @@ regionCompleteCard.addEventListener('click', () => {
 // 2배 보상 실제 지급. instant=true면 대기 없이 즉시(광고 제거 구매자용),
 // 그렇지 않으면 광고 SDK 없이 "재생 중" 표시 후 잠시 뒤 지급하는 시뮬레이션.
 function grantAdDoubleReward(instant = false) {
-  if (pendingAdDoubled) return;
-  pendingAdDoubled = true;
+  if (pendingAdDoubled || isAdBusy()) return;
   const apply = () => {
     coins += pendingAdRewardCoins;
     gems += pendingAdRewardGems;
@@ -1773,12 +1773,19 @@ function grantAdDoubleReward(instant = false) {
     regionAdDoubleBtn.classList.add('hidden');
     regionAdStatus.classList.remove('hidden');
     regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
+    pendingAdDoubled = true;
   };
   if (instant) { apply(); return; }
   regionAdDoubleBtn.disabled = true;
   regionAdStatus.classList.remove('hidden');
   regionAdStatus.textContent = t('ad.playing');
-  window.setTimeout(apply, 1200);
+  showRewardAd('region-double-reward', (rewarded) => {
+    if (rewarded) apply();
+    else {
+      regionAdDoubleBtn.disabled = false;
+      regionAdStatus.textContent = t('ad.watchFull');
+    }
+  });
 }
 regionAdDoubleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -1789,17 +1796,21 @@ const gemAdBtn = document.querySelector<HTMLButtonElement>('#buy-gem-ad')!;
 let gemAdTimer: ReturnType<typeof setInterval> | null = null;
 
 function grantGemAdReward() {
-  if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN) return;
+  if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN || isAdBusy()) return;
   gemAdBtn.disabled = true;
   gemAdBtn.textContent = t('ad.playing');
-  window.setTimeout(() => {
-    gems += GEM_AD_REWARD;
-    lastGemAdTime = Date.now();
-    updateHud(0, GEM_AD_REWARD);
-    persist();
-    refreshShop();
-    showNotice(t('notice.gemAdClaimed', { gems: GEM_AD_REWARD }));
-  }, 1200);
+  showRewardAd('gem-reward-30', (rewarded) => {
+    if (rewarded) {
+      gems += GEM_AD_REWARD;
+      lastGemAdTime = Date.now();
+      updateHud(0, GEM_AD_REWARD);
+      persist();
+      refreshShop();
+      showNotice(t('notice.gemAdClaimed', { gems: GEM_AD_REWARD }));
+    } else {
+      updateGemAdBtn();
+    }
+  });
 }
 
 function updateGemAdBtn() {
