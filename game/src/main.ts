@@ -868,8 +868,12 @@ interface SaveData {
   tutorial: number;
   chestDayClaimed: number;
   adsRemoved: boolean;
+  lastGemAdTime: number;
   savedAt: number;
 }
+
+const GEM_AD_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+const GEM_AD_REWARD = 30;
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
 const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, graphicsQuality: 'high' };
@@ -891,6 +895,7 @@ const defaultSave: SaveData = {
   tutorial: 0,
   chestDayClaimed: -1,
   adsRemoved: false,
+  lastGemAdTime: 0,
   savedAt: 0,
 };
 function loadSave(): SaveData {
@@ -914,6 +919,7 @@ function loadSave(): SaveData {
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
       chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
       adsRemoved: Boolean(parsed.adsRemoved),
+      lastGemAdTime: Number(parsed.lastGemAdTime) || 0,
       savedAt: Number(parsed.savedAt) || 0,
     };
   } catch { return structuredClone(defaultSave); }
@@ -1166,6 +1172,7 @@ let pendingAdDoubled = false;
 // 광고 제거(VX 상점)를 구매하면 광고 없이 2배 보상이 자동 지급된다.
 // 실제 광고 SDK 연동 시: 이 플래그가 false일 때만 진짜 광고를 재생하도록 훅을 걸면 됨.
 let adsRemoved = saveData.adsRemoved;
+let lastGemAdTime = saveData.lastGemAdTime;
 let noticeTimer = 0;
 
 const BGM_BASE_VOLUME = 0.28;
@@ -1300,6 +1307,7 @@ function persist() {
     tutorial: tutorialStep,
     chestDayClaimed,
     adsRemoved,
+    lastGemAdTime,
     savedAt: Date.now(),
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
@@ -1776,6 +1784,46 @@ regionAdDoubleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   grantAdDoubleReward();
 });
+
+const gemAdBtn = document.querySelector<HTMLButtonElement>('#buy-gem-ad')!;
+let gemAdTimer: ReturnType<typeof setInterval> | null = null;
+
+function grantGemAdReward() {
+  if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN) return;
+  gemAdBtn.disabled = true;
+  gemAdBtn.textContent = t('ad.playing');
+  window.setTimeout(() => {
+    gems += GEM_AD_REWARD;
+    lastGemAdTime = Date.now();
+    updateHud(0, GEM_AD_REWARD);
+    persist();
+    refreshShop();
+    showNotice(t('notice.gemAdClaimed', { gems: GEM_AD_REWARD }));
+  }, 1200);
+}
+
+function updateGemAdBtn() {
+  const remaining = GEM_AD_COOLDOWN - (Date.now() - lastGemAdTime);
+  if (remaining <= 0) {
+    gemAdBtn.disabled = false;
+    gemAdBtn.textContent = t('ad.watchForGems', { gems: GEM_AD_REWARD });
+  } else {
+    gemAdBtn.disabled = true;
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    gemAdBtn.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+}
+
+gemAdBtn.addEventListener('click', () => {
+  grantGemAdReward();
+});
+
+if (gemAdTimer) clearInterval(gemAdTimer);
+gemAdTimer = setInterval(() => {
+  updateGemAdBtn();
+  updateCoinBoostBadge();
+}, 1000);
 
 // VX(실결제) 상품: 실제 결제 연동 전까지는 공통으로 "coming soon" 안내.
 // '광고 제거'(data-vx="remove-ads")는 결제 연동 후 이 버튼 대신 실제 구매 완료 콜백에서
