@@ -18,6 +18,7 @@ import {
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, getVxShopUrl } from './ranking';
+import { showRewardAd, isAdBusy } from './ads';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -868,8 +869,12 @@ interface SaveData {
   tutorial: number;
   chestDayClaimed: number;
   adsRemoved: boolean;
+  lastGemAdTime: number;
   savedAt: number;
 }
+
+const GEM_AD_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+const GEM_AD_REWARD = 30;
 const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
 const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
 const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, graphicsQuality: 'high' };
@@ -891,6 +896,7 @@ const defaultSave: SaveData = {
   tutorial: 0,
   chestDayClaimed: -1,
   adsRemoved: false,
+  lastGemAdTime: 0,
   savedAt: 0,
 };
 function loadSave(): SaveData {
@@ -914,6 +920,7 @@ function loadSave(): SaveData {
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
       chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
       adsRemoved: Boolean(parsed.adsRemoved),
+      lastGemAdTime: Number(parsed.lastGemAdTime) || 0,
       savedAt: Number(parsed.savedAt) || 0,
     };
   } catch { return structuredClone(defaultSave); }
@@ -1166,6 +1173,7 @@ let pendingAdDoubled = false;
 // 광고 제거(VX 상점)를 구매하면 광고 없이 2배 보상이 자동 지급된다.
 // 실제 광고 SDK 연동 시: 이 플래그가 false일 때만 진짜 광고를 재생하도록 훅을 걸면 됨.
 let adsRemoved = saveData.adsRemoved;
+let lastGemAdTime = saveData.lastGemAdTime;
 let noticeTimer = 0;
 
 const BGM_BASE_VOLUME = 0.28;
@@ -1300,6 +1308,7 @@ function persist() {
     tutorial: tutorialStep,
     chestDayClaimed,
     adsRemoved,
+    lastGemAdTime,
     savedAt: Date.now(),
   };
   localStorage.setItem('yardSweepSave', JSON.stringify(data));
@@ -1754,8 +1763,7 @@ regionCompleteCard.addEventListener('click', () => {
 // 2배 보상 실제 지급. instant=true면 대기 없이 즉시(광고 제거 구매자용),
 // 그렇지 않으면 광고 SDK 없이 "재생 중" 표시 후 잠시 뒤 지급하는 시뮬레이션.
 function grantAdDoubleReward(instant = false) {
-  if (pendingAdDoubled) return;
-  pendingAdDoubled = true;
+  if (pendingAdDoubled || isAdBusy()) return;
   const apply = () => {
     coins += pendingAdRewardCoins;
     gems += pendingAdRewardGems;
@@ -1765,17 +1773,68 @@ function grantAdDoubleReward(instant = false) {
     regionAdDoubleBtn.classList.add('hidden');
     regionAdStatus.classList.remove('hidden');
     regionAdStatus.textContent = t('ad.doubleApplied', { coins: Math.floor(pendingAdRewardCoins), gems: pendingAdRewardGems });
+    pendingAdDoubled = true;
   };
   if (instant) { apply(); return; }
   regionAdDoubleBtn.disabled = true;
   regionAdStatus.classList.remove('hidden');
   regionAdStatus.textContent = t('ad.playing');
-  window.setTimeout(apply, 1200);
+  showRewardAd('region-double-reward', (rewarded) => {
+    if (rewarded) apply();
+    else {
+      regionAdDoubleBtn.disabled = false;
+      regionAdStatus.textContent = t('ad.watchFull');
+    }
+  });
 }
 regionAdDoubleBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   grantAdDoubleReward();
 });
+
+const gemAdBtn = document.querySelector<HTMLButtonElement>('#buy-gem-ad')!;
+let gemAdTimer: ReturnType<typeof setInterval> | null = null;
+
+function grantGemAdReward() {
+  if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN || isAdBusy()) return;
+  gemAdBtn.disabled = true;
+  gemAdBtn.textContent = t('ad.playing');
+  showRewardAd('gem-reward-30', (rewarded) => {
+    if (rewarded) {
+      gems += GEM_AD_REWARD;
+      lastGemAdTime = Date.now();
+      updateHud(0, GEM_AD_REWARD);
+      persist();
+      refreshShop();
+      showNotice(t('notice.gemAdClaimed', { gems: GEM_AD_REWARD }));
+    } else {
+      updateGemAdBtn();
+    }
+  });
+}
+
+function updateGemAdBtn() {
+  const remaining = GEM_AD_COOLDOWN - (Date.now() - lastGemAdTime);
+  if (remaining <= 0) {
+    gemAdBtn.disabled = false;
+    gemAdBtn.textContent = t('ad.watchForGems', { gems: GEM_AD_REWARD });
+  } else {
+    gemAdBtn.disabled = true;
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    gemAdBtn.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+}
+
+gemAdBtn.addEventListener('click', () => {
+  grantGemAdReward();
+});
+
+if (gemAdTimer) clearInterval(gemAdTimer);
+gemAdTimer = setInterval(() => {
+  updateGemAdBtn();
+  updateCoinBoostBadge();
+}, 1000);
 
 // VX(실결제) 상품: CrossRamp 결제 페이지를 새 탭으로 연다. SKU/가격은 Verse8 대시보드에서 구성.
 // '광고 제거'는 CrossRamp가 재화(보석) 충전만 지원하고 개별 아이템 구매 개념이 없어서,
