@@ -122,8 +122,6 @@ const ko: Dict = {
   'vxshop.gems-1200.desc': 'VX로 구매',
   'vxshop.ad-removal.title': '광고 제거',
   'vxshop.ad-removal.desc': '지역완료 2배 보상 즉시 지급',
-  'vxshop.test-free.title': '테스트 상품',
-  'vxshop.test-free.desc': 'QA 테스트용',
   'notice.adsRemoved': '광고 제거 구매 완료! 앞으로 2배 보상이 자동 지급됩니다.',
   'notice.vxPurchaseSuccess': '{product} 구매 성공!',
 
@@ -332,8 +330,6 @@ const en: Dict = {
   'vxshop.gems-1200.desc': 'Buy with VX',
   'vxshop.ad-removal.title': 'Remove Ads',
   'vxshop.ad-removal.desc': 'Instant 2x region rewards',
-  'vxshop.test-free.title': 'Test Item',
-  'vxshop.test-free.desc': 'QA test item',
   'notice.adsRemoved': 'Ads removed! 2x rewards will now apply automatically.',
   'notice.vxPurchaseSuccess': '{product} purchase successful!',
 

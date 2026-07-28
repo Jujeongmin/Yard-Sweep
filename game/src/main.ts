@@ -1841,7 +1841,7 @@ gemAdTimer = setInterval(() => {
 let vxBuying = false;
 let pendingVxProductId: string | null = null;
 
-onClose((payload) => {
+onClose((payload: { action?: string; productId?: string }) => {
   if (payload.action !== 'purchased' || !payload.productId) {
     vxBuying = false;
     pendingVxProductId = null;
@@ -1880,7 +1880,6 @@ async function verifyVxPurchase() {
         'gems-100': 100,
         'gems-550': 550,
         'gems-1200': 1200,
-        'test-free': 1,
       };
       const gain = expectedGain[productId];
       if (gain && serverState.crystals >= prevGems + gain) {

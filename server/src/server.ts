@@ -4,7 +4,6 @@ export class Server {
     'gems-550': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 550 * qty }),
     'gems-1200': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 1200 * qty }),
     'ad-removal': () => ({ adRemoved: true }),
-    'test-free': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 1 * qty }),
   };
 
   async $onItemPurchased({

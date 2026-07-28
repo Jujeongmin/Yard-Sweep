@@ -236,13 +236,6 @@ describe('Server', () => {
       expect(state.adRemoved).toBe(true);
     });
 
-    test('test-free grants 1 crystal', async (server) => {
-      server.connect({ account: 'vxbuyer5' });
-      await server.$onItemPurchased({ account: 'vxbuyer5', purchaseId: 5, productId: 'test-free', quantity: 1 });
-      const state = await server.getVxState();
-      expect(state.crystals).toBe(1);
-    });
-
     test('duplicate purchaseId does not double-grant', async (server) => {
       server.connect({ account: 'vxbuyer6' });
       await server.$onItemPurchased({ account: 'vxbuyer6', purchaseId: 10, productId: 'gems-100', quantity: 1 });
@@ -279,9 +272,8 @@ describe('Server', () => {
       server.connect({ account: 'vxbuyer11' });
       await server.$onItemPurchased({ account: 'vxbuyer11', purchaseId: 20, productId: 'gems-100', quantity: 1 });
       await server.$onItemPurchased({ account: 'vxbuyer11', purchaseId: 21, productId: 'gems-550', quantity: 1 });
-      await server.$onItemPurchased({ account: 'vxbuyer11', purchaseId: 22, productId: 'test-free', quantity: 3 });
       const state = await server.getVxState();
-      expect(state.crystals).toBe(100 + 550 + 3);
+      expect(state.crystals).toBe(100 + 550);
     });
 
     test('getVxState returns defaults for fresh user', async (server) => {
