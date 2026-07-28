@@ -17,7 +17,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
-import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave } from './ranking';
+import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, getVxShopUrl } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -1777,12 +1777,15 @@ regionAdDoubleBtn.addEventListener('click', (e) => {
   grantAdDoubleReward();
 });
 
-// VX(실결제) 상품: 실제 결제 연동 전까지는 공통으로 "coming soon" 안내.
-// '광고 제거'(data-vx="remove-ads")는 결제 연동 후 이 버튼 대신 실제 구매 완료 콜백에서
-// `adsRemoved = true; persist(); refreshShop();` 를 호출하도록 연결하면 됨 (적용 로직은 이미 동작).
+// VX(실결제) 상품: CrossRamp 결제 페이지를 새 탭으로 연다. SKU/가격은 Verse8 대시보드에서 구성.
+// '광고 제거'는 CrossRamp가 재화(보석) 충전만 지원하고 개별 아이템 구매 개념이 없어서,
+// 실제 지급은 여전히 수동 훅으로 남겨둠: 구매 완료가 확인되면 이 버튼 대신
+// `adsRemoved = true; persist(); refreshShop();` 를 호출하도록 연결하면 됨(적용 로직은 이미 동작).
 document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    showNotice(t('vxshop.comingSoon'));
+  btn.addEventListener('click', async () => {
+    const url = await getVxShopUrl(getLocale());
+    if (!url) { showNotice(t('ranking.serverNotConnected')); return; }
+    window.open(url, '_blank', 'noopener');
   });
 });
 const removeAdsButton = document.querySelector<HTMLButtonElement>('#buy-remove-ads')!;

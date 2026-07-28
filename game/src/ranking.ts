@@ -27,6 +27,16 @@ export function isConnected() {
   return connected;
 }
 
+// VX 상점: CrossRamp 결제 페이지 URL. 실제 SKU 목록/가격은 Verse8 대시보드에서 구성.
+export async function getVxShopUrl(lang: 'ko' | 'en' = 'ko'): Promise<string | null> {
+  if (!server || !connected) return null;
+  try {
+    return await server.getCrossRampShopUrl(lang);
+  } catch {
+    return null;
+  }
+}
+
 export function getNickname() {
   return nickname;
 }
