@@ -1,4 +1,12 @@
 export class Server {
+  private ALLOWED_PRODUCTS: Record<string, (state: any, qty: number) => any> = {
+    'gems-100': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 100 * qty }),
+    'gems-550': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 550 * qty }),
+    'gems-1200': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 1200 * qty }),
+    'ad-removal': () => ({ adRemoved: true }),
+    'test-free': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 1 * qty }),
+  };
+
   async $onItemPurchased({
     account,
     purchaseId,
@@ -10,37 +18,51 @@ export class Server {
     productId: string;
     quantity: number;
   }): Promise<{ success: boolean }> {
-    const userState = await $global.getUserState(account);
-    let save: Record<string, any> = {};
-    try { save = JSON.parse(userState.gameSave || '{}'); } catch { /* keep {} */ }
-
-    switch (productId) {
-      case 'gems-100':
-        save.gems = (Number(save.gems) || 0) + 100 * quantity;
-        break;
-      case 'gems-550':
-        save.gems = (Number(save.gems) || 0) + 550 * quantity;
-        break;
-      case 'gems-1200':
-        save.gems = (Number(save.gems) || 0) + 1200 * quantity;
-        break;
-      case 'ad-removal':
-        save.adsRemoved = true;
-        break;
-      case 'test-free':
-        save.gems = (Number(save.gems) || 0) + 1 * quantity;
-        break;
-      default:
-        throw new Error(`Unknown product: ${productId}`);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      return { success: false };
+    }
+    if (quantity > 100) {
+      return { success: false };
     }
 
-    save.savedAt = Date.now();
+    const productHandler = this.ALLOWED_PRODUCTS[productId];
+    if (!productHandler) {
+      return { success: false };
+    }
+
+    const userState = await $global.getUserState(account);
+
+    const processedPurchases: number[] = userState.vxProcessedPurchases || [];
+    if (processedPurchases.includes(purchaseId)) {
+      return { success: true };
+    }
+
+    const patch = productHandler(userState, quantity);
+
     await $global.updateUserState(account, {
-      gameSave: JSON.stringify(save),
-      gameSaveAt: save.savedAt,
+      ...patch,
+      vxProcessedPurchases: [...processedPurchases, purchaseId],
     });
 
     return { success: true };
+  }
+
+  async getVxState(): Promise<{ crystals: number; adRemoved: boolean }> {
+    const state = await $global.getMyState();
+    return {
+      crystals: Number(state.crystals) || 0,
+      adRemoved: Boolean(state.adRemoved),
+    };
+  }
+
+  async syncVxState(clientGems: number, clientAdRemoved: boolean): Promise<{ gems: number; adsRemoved: boolean }> {
+    const serverState = await $global.getMyState();
+    const serverCrystals = Number(serverState.crystals) || 0;
+    const serverAdRemoved = Boolean(serverState.adRemoved);
+    return {
+      gems: Math.max(clientGems, serverCrystals),
+      adsRemoved: clientAdRemoved || serverAdRemoved,
+    };
   }
 
   async ping(): Promise<string> {
@@ -136,7 +158,7 @@ export class Server {
 
   async resetAllData(): Promise<{ success: boolean }> {
     await $global.deleteCollection('rankings');
-    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null });
+    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null });
     return { success: true };
   }
 

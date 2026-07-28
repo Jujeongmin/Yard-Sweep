@@ -17,7 +17,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
-import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, getVxShopUrl } from './ranking';
+import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
 import './style.css';
 
@@ -1836,15 +1836,83 @@ gemAdTimer = setInterval(() => {
   updateCoinBoostBadge();
 }, 1000);
 
-// VX(실결제) 상품: CrossRamp 결제 페이지를 새 탭으로 연다. SKU/가격은 Verse8 대시보드에서 구성.
-// '광고 제거'는 CrossRamp가 재화(보석) 충전만 지원하고 개별 아이템 구매 개념이 없어서,
-// 실제 지급은 여전히 수동 훅으로 남겨둠: 구매 완료가 확인되면 이 버튼 대신
-// `adsRemoved = true; persist(); refreshShop();` 를 호출하도록 연결하면 됨(적용 로직은 이미 동작).
+// VX(실결제) 상품: @verse8/platform VXShop API를 통해 결제 다이얼로그를 열고,
+// 서버의 $onItemPurchased 핸들러가 지급을 처리한 뒤 클라이언트에서 검증한다.
+let vxBuying = false;
+let pendingVxProductId: string | null = null;
+
+onClose((payload) => {
+  if (payload.action !== 'purchased' || !payload.productId) {
+    vxBuying = false;
+    pendingVxProductId = null;
+    refresh();
+    return;
+  }
+  pendingVxProductId = payload.productId;
+  verifyVxPurchase();
+});
+
+async function verifyVxPurchase() {
+  if (!pendingVxProductId) return;
+  const productId = pendingVxProductId;
+
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await new Promise((r) => setTimeout(r, 500 + attempt * 250));
+    const serverState = await fetchVxServerState();
+    if (!serverState) continue;
+
+    const prevGems = gems;
+    const prevAdRemoved = adsRemoved;
+
+    if (productId === 'ad-removal') {
+      if (serverState.adRemoved) {
+        adsRemoved = true;
+        persist();
+        refreshShop();
+        showNotice(t('notice.adsRemoved'));
+        vxBuying = false;
+        pendingVxProductId = null;
+        refresh();
+        return;
+      }
+    } else {
+      const expectedGain: Record<string, number> = {
+        'gems-100': 100,
+        'gems-550': 550,
+        'gems-1200': 1200,
+        'test-free': 1,
+      };
+      const gain = expectedGain[productId];
+      if (gain && serverState.crystals >= prevGems + gain) {
+        gems = serverState.crystals;
+        updateHud();
+        refreshShop();
+        showNotice(t('notice.vxPurchaseSuccess', { product: t(`vxshop.${productId}.title`) }));
+        vxBuying = false;
+        pendingVxProductId = null;
+        refresh();
+        return;
+      }
+    }
+  }
+
+  // 최종 시도: 서버 동기화에 실패했더라도 1회 더 확인
+  refresh();
+  vxBuying = false;
+  pendingVxProductId = null;
+}
+
+function handleVxBuy(productId: string) {
+  if (vxBuying) return;
+  vxBuying = true;
+  buyItem(productId);
+}
+
 document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((btn) => {
-  btn.addEventListener('click', async () => {
-    const url = await getVxShopUrl(getLocale());
-    if (!url) { showNotice(t('ranking.serverNotConnected')); return; }
-    window.open(url, '_blank', 'noopener');
+  btn.addEventListener('click', () => {
+    const productId = btn.dataset.vx;
+    if (!productId) return;
+    handleVxBuy(productId);
   });
 });
 const removeAdsButton = document.querySelector<HTMLButtonElement>('#buy-remove-ads')!;
@@ -1997,6 +2065,23 @@ function refreshShop() {
   removeAdsButton.textContent = adsRemoved ? t('shop.owned') : 'VX';
   removeAdsButton.disabled = adsRemoved;
   removeAdsButton.classList.toggle('owned', adsRemoved);
+  document.querySelectorAll<HTMLButtonElement>('.buy-vx-gem').forEach((button) => {
+    const productId = button.dataset.vx;
+    if (!productId) return;
+    const item = getItem(productId);
+    if (item) {
+      button.classList.toggle('owned', item.purchaseLimitReached);
+      button.disabled = item.purchaseLimitReached || vxBuying;
+      if (item.purchaseLimitReached) {
+        button.textContent = t('shop.owned');
+      } else if (item.purchasable) {
+        button.textContent = `${item.price} VX`;
+      } else {
+        button.textContent = item.purchaseBlockReason || 'VX';
+        button.disabled = true;
+      }
+    }
+  });
 }
 function toggleShop(force?: boolean) {
   shopOpen = force ?? !shopOpen;
@@ -2303,6 +2388,7 @@ enterRegion(currentRegionId);
 selectCategory(1);
 // 서버 연결 후 계정 클라우드 세이브와 로컬 세이브를 비교해 최신 쪽을 사용한다.
 // 클라우드가 더 최신이면 로컬에 덮어쓰고 새로고침(1회)으로 적용 — 다른 기기에서 이어하기.
+// VX Shop에서 구매한 크리스탈/광고제거도 서버 상태를 우선으로 동기화한다.
 initRanking().then(async () => {
   const cloud = await loadCloudSave();
   const cloudSavedAt = Number((cloud as { savedAt?: number } | null)?.savedAt ?? 0);
@@ -2315,6 +2401,19 @@ initRanking().then(async () => {
   }
   // 클라우드가 없거나 로컬이 최신이면 현재 로컬 상태를 클라우드로 올림
   persist();
+
+  // 서버 VX 상태 동기화: 서버에 기록된 crystals/adRemoved가 로컬보다 높으면 덮어쓴다.
+  const serverVx = await fetchVxServerState();
+  if (serverVx) {
+    if (serverVx.crystals > gems) {
+      gems = serverVx.crystals;
+      updateHud();
+    }
+    if (serverVx.adRemoved && !adsRemoved) {
+      adsRemoved = true;
+      refreshShop();
+    }
+  }
 });
 
 function animate() {

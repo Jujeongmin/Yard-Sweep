@@ -39,6 +39,15 @@ function initVxShop() {
 export { buyItem, getItem, refresh, onClose };
 export function isVxShopReady() { return vxShopReady; }
 
+export async function fetchVxServerState(): Promise<{ crystals: number; adRemoved: boolean } | null> {
+  if (!server || !connected) return null;
+  try {
+    return await server.remoteFunction('getVxState') as { crystals: number; adRemoved: boolean };
+  } catch {
+    return null;
+  }
+}
+
 export function isConnected() {
   return connected;
 }
