@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="72%">
+      <stop offset="0%" stop-color="#4f6b7a"/>
+      <stop offset="100%" stop-color="#1a2b36"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="76" fill="url(#bg)"/>
+
+  <!-- TV / ad screen -->
+  <g transform="translate(256,246)">
+    <!-- antenna -->
+    <path d="M -52,-104 L -14,-58 M 52,-104 L 14,-58" stroke="#cfd9df" stroke-width="14" stroke-linecap="round"/>
+    <!-- body -->
+    <rect x="-140" y="-62" width="280" height="196" rx="26" fill="#33505f"/>
+    <rect x="-140" y="-62" width="280" height="196" rx="26" fill="none" stroke="#e8eef1" stroke-width="12"/>
+    <!-- screen -->
+    <rect x="-108" y="-32" width="216" height="136" rx="12" fill="#f4e7c8"/>
+    <text x="0" y="58" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="92" fill="#c8562f">AD</text>
+    <!-- stand -->
+    <rect x="-58" y="134" width="116" height="18" rx="9" fill="#e8eef1"/>
+  </g>
+
+  <!-- prohibition slash -->
+  <circle cx="256" cy="252" r="168" fill="none" stroke="#ff4d3d" stroke-width="34" opacity=".95"/>
+  <path d="M 137,133 L 375,371" stroke="#ff4d3d" stroke-width="34" stroke-linecap="round" opacity=".95"/>
+
+  <text x="256" y="470" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="58" fill="#ffffff" stroke="#16242d" stroke-width="9" paint-order="stroke">NO ADS</text>
+</svg>
