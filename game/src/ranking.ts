@@ -1,4 +1,5 @@
 import { GameServer } from '@agent8/gameserver';
+import { init as initVxShopApi, buyItem, getItem, refresh, onClose } from '@verse8/platform';
 import { t } from './i18n';
 
 let server: GameServer | null = null;
@@ -8,6 +9,7 @@ let lastSyncTime = 0;
 let pendingLevel = 0;
 let pendingExp = 0;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let vxShopReady = false;
 
 export async function initRanking() {
   try {
@@ -17,24 +19,28 @@ export async function initRanking() {
       const nick = await server.remoteFunction('getMyNickname');
       nickname = (nick as string) || null;
       updateNicknameUI();
+      initVxShop();
     }
   } catch {
     connected = false;
   }
 }
 
-export function isConnected() {
-  return connected;
+function initVxShop() {
+  if (!server || !connected) return;
+  try {
+    initVxShopApi({ account: server.account, autoRefresh: true });
+    vxShopReady = true;
+  } catch {
+    vxShopReady = false;
+  }
 }
 
-// VX 상점: CrossRamp 결제 페이지 URL. 실제 SKU 목록/가격은 Verse8 대시보드에서 구성.
-export async function getVxShopUrl(lang: 'ko' | 'en' = 'ko'): Promise<string | null> {
-  if (!server || !connected) return null;
-  try {
-    return await server.getCrossRampShopUrl(lang);
-  } catch {
-    return null;
-  }
+export { buyItem, getItem, refresh, onClose };
+export function isVxShopReady() { return vxShopReady; }
+
+export function isConnected() {
+  return connected;
 }
 
 export function getNickname() {

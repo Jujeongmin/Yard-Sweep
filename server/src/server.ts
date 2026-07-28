@@ -1,4 +1,48 @@
 export class Server {
+  async $onItemPurchased({
+    account,
+    purchaseId,
+    productId,
+    quantity,
+  }: {
+    account: string;
+    purchaseId: number;
+    productId: string;
+    quantity: number;
+  }): Promise<{ success: boolean }> {
+    const userState = await $global.getUserState(account);
+    let save: Record<string, any> = {};
+    try { save = JSON.parse(userState.gameSave || '{}'); } catch { /* keep {} */ }
+
+    switch (productId) {
+      case 'gems-100':
+        save.gems = (Number(save.gems) || 0) + 100 * quantity;
+        break;
+      case 'gems-550':
+        save.gems = (Number(save.gems) || 0) + 550 * quantity;
+        break;
+      case 'gems-1200':
+        save.gems = (Number(save.gems) || 0) + 1200 * quantity;
+        break;
+      case 'ad-removal':
+        save.adsRemoved = true;
+        break;
+      case 'test-free':
+        save.gems = (Number(save.gems) || 0) + 1 * quantity;
+        break;
+      default:
+        throw new Error(`Unknown product: ${productId}`);
+    }
+
+    save.savedAt = Date.now();
+    await $global.updateUserState(account, {
+      gameSave: JSON.stringify(save),
+      gameSaveAt: save.savedAt,
+    });
+
+    return { success: true };
+  }
+
   async ping(): Promise<string> {
     return 'pong';
   }
