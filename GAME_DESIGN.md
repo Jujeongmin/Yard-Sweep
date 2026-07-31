@@ -150,6 +150,8 @@
 
 - 점프 기능을 완전히 삭제했다(PC `Space` 키, 모바일 점프 버튼, 관련 중력·착지 로직 모두 제거). 플레이어는 항상 지면 높이에 고정된다.
 - 모바일에서 전체화면을 켰다 껐다 반복하면 카메라가 계속 앞으로 밀리는 버그가 있었다. 브라우저가 전체화면 전환 시 터치를 `pointerup`/`touchend`가 아닌 `pointercancel`/`touchcancel`로 끊는데, 조이스틱과 시점 드래그 입력이 이 이벤트를 받지 않아 이동값이 0으로 리셋되지 않고 그대로 남아있던 게 원인이었다. 조이스틱에 `pointercancel`, 캔버스 시점 드래그에 `touchcancel` 리스너를 추가하고, `fullscreenchange` 핸들러에서도 안전장치로 입력값을 직접 리셋하도록 고쳤다.
+- 반응형 분기 기준을 화면 **너비**에서 **포인터 종류**로 바꿨다. 기존에는 터치 컨트롤 CSS가 `(max-width: 850px) and (orientation: landscape)` 안에만 있어서, 태블릿 가로(iPad 1024px 등)에서는 `#mobile-controls`가 보이는데도 `#joystick`/`#clean-button`의 위치 CSS가 통째로 빠져 `position: static`으로 화면 밖에 밀려났다(조이스틱 1024×0, 청소 버튼 121×29, 둘 다 y=768) — 태블릿에서 이동·청소 자체가 불가능했다. 반대로 마우스를 쓰는 데스크톱에서 창을 850px 이하로 좁히면 조이스틱이 튀어나오고 WASD 안내가 사라졌다. 미디어쿼리 4개와 JS `usesMobileControls()`에서 너비 조건을 모두 제거하고 `(pointer: coarse)` / `(pointer: fine)`만 쓰도록 통일했다. CSS와 JS의 판별 조건이 어긋나면 "터치 UI는 뜨는데 포인터 락을 거는" 불일치가 생기므로 둘을 항상 같이 맞춰야 한다.
+- 노치 대응을 추가했다. `index.html`의 viewport meta에 `viewport-fit=cover`를 넣고(이게 없으면 `env()`가 항상 0을 반환한다), `:root`에 `--safe-t/r/b/l` 변수를 정의해 HUD 패딩, 조이스틱 left/bottom, 청소 버튼 right/bottom, 툴 힌트 bottom에 `calc()`로 더했다. 노치 없는 기기·미지원 브라우저에서는 0px으로 떨어져 기존 레이아웃이 그대로 유지된다.
 - 모바일에서 지역완료 보상 카드가 아예 뜨지 않는 버그가 있었다. `#start`(시작 화면)와 `#region-complete`(지역완료 카드)가 같은 `.start-card` 클래스를 공유하는데, `@media (pointer: coarse)`에서 모바일 시작 화면을 숨기려고 `.start-card { display: none; }`로 클래스 전체를 숨겨버려 지역완료 카드까지 함께 숨겨졌던 것이 원인이었다. 해당 규칙을 `#start`로 좁혀서 고쳤다.
 
 ## UI 변경

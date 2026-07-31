@@ -1244,7 +1244,9 @@ function playRegionBgm() {
 }
 
 function usesMobileControls() {
-  return matchMedia('(max-width: 850px) and (pointer: coarse)').matches;
+  // CSS의 터치 컨트롤 미디어쿼리와 조건을 반드시 일치시킬 것.
+  // 너비를 섞으면 태블릿에서 "터치 UI는 뜨는데 포인터 락을 거는" 불일치가 생긴다.
+  return matchMedia('(pointer: coarse)').matches;
 }
 
 function isTouchDevice() {

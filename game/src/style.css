@@ -20,6 +20,12 @@
   --slot-w: clamp(52px, 11vw, 88px);
   --slot-h: clamp(48px, 10vw, 79px);
   --slot-img: clamp(28px, 5.5vw, 47px);
+  /* 노치·홈 인디케이터 여백. viewport-fit=cover(index.html)와 짝을 이룬다.
+     미지원 브라우저나 노치 없는 기기에서는 0px로 떨어져 기존 레이아웃 유지. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
   font-family: Nunito, "Jua", sans-serif;
   color: white;
   background: #65bdf0;
@@ -34,7 +40,8 @@ button { font: inherit; }
 .hud {
   position: fixed; z-index: 5; top: 0; left: 0; width: 100%;
   display: flex; align-items: flex-start; gap: var(--gap-sm);
-  padding: var(--pad-sm) var(--pad-md);
+  padding: calc(var(--pad-sm) + var(--safe-t)) calc(var(--pad-md) + var(--safe-r))
+           var(--pad-sm) calc(var(--pad-md) + var(--safe-l));
   background: linear-gradient(180deg, rgba(8,24,39,.78), rgba(8,24,39,0));
   pointer-events: none; text-shadow: 0 2px 3px #18344d;
 }
@@ -461,7 +468,9 @@ button { font: inherit; }
   #start { display: none; }
 }
 
-@media (min-width: 851px) and (pointer: fine) {
+/* 데스크톱 판별은 창 너비가 아니라 포인터 종류로 한다.
+   (마우스 사용자는 창을 좁혀도 계속 데스크톱 조작을 써야 함) */
+@media (pointer: fine) {
   .brand { display: block; }
   .controls { display: block; }
   .button-key { display: block; }
@@ -474,7 +483,8 @@ button { font: inherit; }
 }
 
 /* ── Portrait mobile: force landscape fullscreen ── */
-@media (max-width: 850px) and (pointer: coarse) and (orientation: portrait) {
+/* 태블릿 세로(768px 이상)도 포함되도록 너비 조건 제거 */
+@media (pointer: coarse) and (orientation: portrait) {
   .hud { display: none; }
   .inventory { display: none; }
   .controls { display: none; }
@@ -509,9 +519,15 @@ button { font: inherit; }
 }
 @keyframes rotateHint { 0%,100% { transform: rotate(90deg) scale(.95); } 50% { transform: rotate(0) scale(1.05); } }
 
-/* ── Landscape mobile: compact controls ── */
-@media (max-width: 850px) and (orientation: landscape) {
-  .hud { padding: clamp(4px,0.8vw,6px) clamp(6px,1vw,8px); gap: clamp(3px,0.5vw,7px); }
+/* ── Landscape touch devices (phone + tablet): compact controls ── */
+/* 너비 조건을 쓰면 태블릿 가로(1024px 등)에서 조이스틱·청소버튼 위치 CSS가
+   통째로 빠져 조작 불가가 된다. 터치 여부로만 판별한다. */
+@media (pointer: coarse) and (orientation: landscape) {
+  .hud {
+    padding: calc(clamp(4px,0.8vw,6px) + var(--safe-t)) calc(clamp(6px,1vw,8px) + var(--safe-r))
+             clamp(4px,0.8vw,6px) calc(clamp(6px,1vw,8px) + var(--safe-l));
+    gap: clamp(3px,0.5vw,7px);
+  }
   .brand { display: none; }
   .inventory { top: clamp(52px,10vw,57px); }
   .slot { width: clamp(44px,8vw,48px); height: clamp(34px,6.5vw,40px); }
@@ -519,14 +535,15 @@ button { font: inherit; }
   .slot-glyph { height: clamp(22px,4vw,25px); font-size: clamp(18px,3.5vw,22px); line-height: clamp(20px,3.5vw,22px); }
   .slot small { font-size: 0; }
   .slot kbd { display: none; }
-  .tool-hint { bottom: clamp(6px,1vw,8px); }
+  .tool-hint { bottom: calc(clamp(6px,1vw,8px) + var(--safe-b)); }
   .controls { display: none; }
   .button-key { display: none; }
   #mobile-controls { display: block; }
 
   #joystick {
     position: fixed; z-index: 7;
-    left: clamp(18px,3.5vw,22px); bottom: clamp(18px,3.5vw,22px);
+    left: calc(clamp(18px,3.5vw,22px) + var(--safe-l));
+    bottom: calc(clamp(18px,3.5vw,22px) + var(--safe-b));
     width: clamp(85px,15vw,94px); height: clamp(85px,15vw,94px);
     border: clamp(2px,0.4vw,3px) solid rgba(255,255,255,.6);
     border-radius: 50%; background: rgba(18,42,55,.28);
@@ -545,7 +562,8 @@ button { font: inherit; }
   #clean-button {
     position: fixed; z-index: 7; border: clamp(3px,0.5vw,4px) solid white;
     border-radius: 50%; color: white; touch-action: none;
-    right: clamp(16px,3vw,20px); bottom: clamp(18px,3.5vw,24px);
+    right: calc(clamp(16px,3vw,20px) + var(--safe-r));
+    bottom: calc(clamp(18px,3.5vw,24px) + var(--safe-b));
     width: clamp(72px,13vw,82px); height: clamp(72px,13vw,82px);
     background: #4eaf3f; font-size: clamp(22px,4vw,28px);
     -webkit-user-select: none; user-select: none;
