@@ -1,3 +1,23 @@
+function normalizeCollectionCount(result: unknown): number {
+  if (typeof result === 'number' && Number.isFinite(result)) return result;
+
+  if (result && typeof result === 'object') {
+    const record = result as { count?: unknown; data?: unknown };
+    const directCount = Number(record.count);
+    if (Number.isFinite(directCount)) return directCount;
+
+    const data = typeof record.data === 'function'
+      ? (record.data as () => unknown)()
+      : record.data;
+    if (data && typeof data === 'object') {
+      const nestedCount = Number((data as { count?: unknown }).count);
+      if (Number.isFinite(nestedCount)) return nestedCount;
+    }
+  }
+
+  throw new Error('Invalid collection count response.');
+}
+
 export class Server {
   private ALLOWED_PRODUCTS: Record<string, (state: any, qty: number) => any> = {
     'gems-100': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 100 * qty }),
@@ -206,6 +226,9 @@ export class Server {
         ],
       }),
     ]);
-    return { entry: myEntry, rank: higherLevelCount + higherExpAtSameLevelCount + 1 };
+    const rank = normalizeCollectionCount(higherLevelCount)
+      + normalizeCollectionCount(higherExpAtSameLevelCount)
+      + 1;
+    return { entry: myEntry, rank };
   }
 }
