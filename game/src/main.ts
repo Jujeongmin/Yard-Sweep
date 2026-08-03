@@ -856,6 +856,15 @@ toolAnchor.add(fallbackTool);
 camera.add(toolAnchor);
 
 const loader = new GLTFLoader();
+const modelCache = new Map<string, Promise<THREE.Group>>();
+function loadModelScene(path: string) {
+  let pending = modelCache.get(path);
+  if (!pending) {
+    pending = loader.loadAsync(path).then((gltf) => gltf.scene);
+    modelCache.set(path, pending);
+  }
+  return pending;
+}
 let modelRequest = 0;
 function showToolModel(toolId: ToolId) {
   const request = ++modelRequest;
@@ -872,9 +881,9 @@ function showToolModel(toolId: ToolId) {
     neonSickle: { x: -0.1, y: -0.1, z: 0, roll: -2 , yaw: Math.PI/2.5},
     vacuum: { x: -0.5, y: 0.2, z: -1, roll: 0, yaw: Math.PI },
   };
-  loader.load(modelPath, (gltf) => {
+  void loadModelScene(modelPath).then((source) => {
     if (request !== modelRequest) return;
-    const model = gltf.scene;
+    const model = source.clone(true);
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
@@ -904,7 +913,7 @@ function showToolModel(toolId: ToolId) {
     });
     toolAnchor.clear();
     toolAnchor.add(model);
-  }, undefined, () => {
+  }).catch(() => {
     if (request !== modelRequest) return;
     toolAnchor.clear();
     toolAnchor.add(builtinToolFor(toolId));
@@ -1115,8 +1124,8 @@ const robotVacuumGroup = new THREE.Group();
 robotVacuumGroup.visible = false;
 scene.add(robotVacuumGroup);
 function loadRobotVacuumModel() {
-  loader.load('/assets/RobotVacuum.glb', (gltf) => {
-    const model = gltf.scene;
+  void loadModelScene('/assets/RobotVacuum.glb').then((source) => {
+    const model = source.clone(true);
     const bounds = new THREE.Box3().setFromObject(model);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
@@ -1125,7 +1134,7 @@ function loadRobotVacuumModel() {
     model.position.copy(center.multiplyScalar(-scale));
     model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = true; });
     robotVacuumGroup.add(model);
-  });
+  }).catch(() => undefined);
 }
 if (robotVacuumOwned) loadRobotVacuumModel();
 
@@ -1234,6 +1243,10 @@ const meterLabel = meter.querySelector<HTMLElement>('strong')!;
 const feedback = document.querySelector<HTMLElement>('#feedback')!;
 const notice = document.querySelector<HTMLElement>('#notice')!;
 const start = document.querySelector<HTMLButtonElement>('#start')!;
+const loadingScreen = document.querySelector<HTMLElement>('#loading-screen')!;
+const loadingProgress = document.querySelector<HTMLElement>('#loading-progress')!;
+const loadingStatus = document.querySelector<HTMLElement>('#loading-status')!;
+let assetsReady = false;
 const tutorialEl = document.querySelector<HTMLElement>('#tutorial')!;
 const tutorialTextEl = document.querySelector<HTMLElement>('#tutorial-text')!;
 const tutorialProgressEl = document.querySelector<HTMLElement>('#tutorial-progress')!;
@@ -1291,6 +1304,77 @@ Object.values(cleaningSounds).forEach((audio) => { audio.loop = true; });
 const robotVacuumSound = new Audio('/assets/vacuum-sound.mp3');
 robotVacuumSound.loop = true;
 let activeCleaningSound: HTMLAudioElement | undefined;
+
+const allAudio = [
+  ...bgmTracks,
+  buttonSound,
+  regionCompleteSound,
+  coinSound,
+  footstepSound,
+  doorSound,
+  ...Object.values(cleaningSounds),
+  robotVacuumSound,
+];
+
+function preloadAudio(audio: HTMLAudioElement) {
+  return new Promise<void>((resolve) => {
+    if (audio.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) { resolve(); return; }
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      audio.removeEventListener('canplaythrough', finish);
+      audio.removeEventListener('error', finish);
+      resolve();
+    };
+    const timeout = window.setTimeout(finish, 15000);
+    audio.preload = 'auto';
+    audio.addEventListener('canplaythrough', finish, { once: true });
+    audio.addEventListener('error', finish, { once: true });
+    audio.load();
+  });
+}
+
+function preloadImage(path: string) {
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    image.onload = () => { void image.decode().catch(() => undefined).finally(resolve); };
+    image.onerror = () => resolve();
+    image.src = path;
+  });
+}
+
+async function prepareGameAssets() {
+  const modelPaths = [...new Set([
+    ...Object.values(tools).map((tool) => tool.model).filter((path): path is string => !!path),
+    '/assets/RobotVacuum.glb',
+  ])];
+  const imagePaths = [...new Set(Object.values(toolImage))];
+  const tasks: Array<Promise<unknown>> = [
+    ...modelPaths.map(async (path) => {
+      const model = await loadModelScene(path);
+      await renderer.compileAsync(model, camera);
+    }),
+    ...imagePaths.map(preloadImage),
+    ...allAudio.map(preloadAudio),
+  ];
+  let completed = 0;
+  loadingProgress.style.width = '2%';
+  await Promise.all(tasks.map(async (task) => {
+    try { await task; } catch { /* individual assets already have runtime fallbacks */ }
+    completed += 1;
+    loadingProgress.style.width = `${Math.max(2, Math.round((completed / tasks.length) * 100))}%`;
+  }));
+  renderer.compile(scene, camera);
+  renderer.render(scene, camera);
+  loadingProgress.style.width = '100%';
+  loadingStatus.textContent = t('loading.ready');
+  await new Promise((resolve) => window.setTimeout(resolve, 180));
+  assetsReady = true;
+  start.disabled = false;
+  loadingScreen.classList.add('ready');
+}
 
 function applyAudioSettings() {
   bgmTracks.forEach((audio) => { audio.volume = BGM_BASE_VOLUME * settings.bgmVolume; });
@@ -1792,7 +1876,7 @@ function updateRobotVacuum(delta: number) {
 }
 
 function startGame() {
-  if (gameStarted) return;
+  if (gameStarted || !assetsReady) return;
   gameStarted = true;
   start.classList.add('hidden');
   if (isTouchDevice()) {
@@ -1820,6 +1904,7 @@ function startGame() {
 }
 
 start.addEventListener('click', () => {
+  if (!assetsReady) return;
   if (isTouchDevice() && !document.fullscreenElement) {
     enterFullscreen();
     return;
@@ -1830,7 +1915,7 @@ start.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => {
   refreshFullscreenBanner();
   if (document.fullscreenElement) {
-    if (isTouchDevice() && !gameStarted) startGame();
+    if (isTouchDevice() && assetsReady && !gameStarted) startGame();
   }
   if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
     gameStarted = false;
@@ -2618,7 +2703,6 @@ function applyLocale() {
 
 animate();
 applyLocale();
-
-if (isTouchDevice()) {
-  startGame();
-}
+void prepareGameAssets().then(() => {
+  if (isTouchDevice()) startGame();
+});

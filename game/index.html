@@ -11,6 +11,14 @@
   <body>
     <div id="app">
       <canvas id="game"></canvas>
+      <div id="loading-screen" role="status" aria-live="polite">
+        <div class="loading-card">
+          <span class="mini-logo">YARD SWEEP</span>
+          <strong data-i18n="loading.title">마당을 준비하고 있어요</strong>
+          <div class="loading-track"><i id="loading-progress"></i></div>
+          <small id="loading-status" data-i18n="loading.assets">게임 리소스 불러오는 중...</small>
+        </div>
+      </div>
       <header class="hud">
         <div class="brand">YARD <span>SWEEP</span></div>
         <div class="stat coin"><span class="coin-dot"><i class="ui-icon icon-coin"></i></span><strong id="coins">0</strong></div>
@@ -46,7 +54,7 @@
       </div>
       <button id="interact-hint" class="interact-hint hidden"></button>
       <div class="controls"><b data-i18n="controls.keys">WASD</b> <span data-i18n="controls.move">이동</span> · <b data-i18n="controls.mouse">마우스</b> <span data-i18n="controls.view">시점</span> · <b data-i18n="controls.click">좌클릭</b> <span data-i18n="controls.clean">청소</span></div>
-      <button id="start" class="start-card">
+      <button id="start" class="start-card" disabled>
         <span class="mini-logo">YARD SWEEP</span>
         <strong data-i18n="start.title">청소 시작!</strong>
         <small class="start-subtitle-desktop" data-i18n="start.subtitle">클릭하여 마우스를 연결하세요</small>

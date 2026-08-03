@@ -39,6 +39,9 @@ const ko: Dict = {
   'label.currentRegion': '현재 지역',
   'label.inventory': '장비 인벤토리',
   'label.cleaningInProgress': '청소 중',
+  'loading.title': '마당을 준비하고 있어요',
+  'loading.assets': '게임 리소스 불러오는 중...',
+  'loading.ready': '준비 완료!',
   'label.cleaningItem': '{label} 청소 중',
 
   'aria.shop': '상점',
@@ -247,6 +250,9 @@ const en: Dict = {
   'label.currentRegion': 'Current region',
   'label.inventory': 'Tool inventory',
   'label.cleaningInProgress': 'Cleaning',
+  'loading.title': 'Preparing your yard',
+  'loading.assets': 'Loading game assets...',
+  'loading.ready': 'Ready!',
   'label.cleaningItem': 'Cleaning {label}',
 
   'aria.shop': 'Shop',
