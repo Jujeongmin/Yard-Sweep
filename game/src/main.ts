@@ -1168,15 +1168,15 @@ const clock = new THREE.Clock();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 const aimPoint = new THREE.Vector3();
 const ray = new THREE.Ray();
-const toolUi: Record<ToolId, { size: number; icon: string }> = {
-  basicBroom: { size: 122, icon: '🧹' },
-  wideBroom: { size: 176, icon: '🧹' },
-  vacuum: { size: 154, icon: '◉' },
-  copperSickle: { size: 142, icon: '☾' },
-  metalSickle: { size: 178, icon: '☾' },
-  pickaxe: { size: 112, icon: '⛏' },
-  neonSickle: { size: 188, icon: '☾' },
-  neonPickaxe: { size: 132, icon: '⛏' },
+const toolUi: Record<ToolId, { size: number }> = {
+  basicBroom: { size: 122 },
+  wideBroom: { size: 176 },
+  vacuum: { size: 154 },
+  copperSickle: { size: 142 },
+  metalSickle: { size: 178 },
+  pickaxe: { size: 112 },
+  neonSickle: { size: 188 },
+  neonPickaxe: { size: 132 },
 };
 // HUD 인벤토리 슬롯에 표시할 도구 아이콘 이미지
 const toolImage: Record<ToolId, string> = {
@@ -1199,6 +1199,10 @@ const coinBoostBadge = document.querySelector<HTMLElement>('#coin-boost-badge')!
 const coinBoostTimerEl = document.querySelector('#coin-boost-timer')!;
 const coinBoostButton = document.querySelector<HTMLButtonElement>('#buy-coin-boost')!;
 const robotVacuumButton = document.querySelector<HTMLButtonElement>('#buy-robot-vacuum')!;
+
+function uiIcon(name: string) {
+  return `<i class="ui-icon icon-${name}" aria-hidden="true"></i>`;
+}
 
 function buildRewardLabel(coins: number, gems: number): string {
   return [coins > 0 ? t('unit.coinGain', { n: coins }) : '', gems > 0 ? t('unit.gemGain', { n: gems }) : '']
@@ -1482,7 +1486,13 @@ function updateToolHintUi(toolId: ToolId) {
   radiusEl.className = `cleaning-radius tool-${toolId}`;
   radiusEl.style.width = `${uiSize}px`;
   radiusEl.style.height = `${uiSize}px`;
-  radiusEl.querySelector('span')!.textContent = `${ui.icon} ${t(tool.name)}`;
+  const radiusLabel = radiusEl.querySelector('span')!;
+  radiusLabel.replaceChildren();
+  const toolIcon = document.createElement('img');
+  toolIcon.className = 'tool-image-icon';
+  toolIcon.src = toolImage[toolId];
+  toolIcon.alt = '';
+  radiusLabel.append(toolIcon, document.createTextNode(` ${t(tool.name)}`));
 }
 // 인벤토리 3슬롯(카테고리)의 아이콘/라벨/활성 표시 갱신
 function refreshInventoryBar() {
@@ -1895,7 +1905,7 @@ function updateGemAdBtn() {
   const remaining = GEM_AD_COOLDOWN - (Date.now() - lastGemAdTime);
   if (remaining <= 0) {
     gemAdBtn.disabled = false;
-    gemAdBtn.textContent = t('ad.watchForGems', { gems: GEM_AD_REWARD });
+    gemAdBtn.innerHTML = `${uiIcon('video')} ${t('ad.watchForGems', { gems: GEM_AD_REWARD })}`;
   } else {
     gemAdBtn.disabled = true;
     const mins = Math.floor(remaining / 60000);
@@ -2093,14 +2103,16 @@ function refreshShop() {
     button.disabled = equipped;
     if (!owned) {
       const cost = toolCost[id];
-      button.textContent = cost.gems ? `💎 ${cost.gems}` : `● ${cost.coins ?? 0}`;
+      button.innerHTML = cost.gems
+        ? `${uiIcon('gem')} ${cost.gems}`
+        : `${uiIcon('coin')} ${cost.coins ?? 0}`;
     } else {
       button.textContent = equipped ? t('shop.equipped') : t('shop.equip');
     }
   });
   document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => {
     const id = button.dataset.upgrade as UpgradeId;
-    button.textContent = upgrades[id] >= 10 ? 'MAX' : `● ${upgradePrice(id)}`;
+    button.innerHTML = upgrades[id] >= 10 ? 'MAX' : `${uiIcon('coin')} ${upgradePrice(id)}`;
     document.querySelector(`#level-${id}`)!.textContent = `Lv.${upgrades[id]}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => {
@@ -2135,8 +2147,10 @@ function refreshShop() {
     button.textContent = claimed ? t('shop.claimed') : `${progress}/${definition.target}`;
   });
   const boostRemaining = coinBoostExpiry - Date.now();
-  coinBoostButton.textContent = boostRemaining > 0 ? `⏱ ${formatCountdown(boostRemaining)}` : '💎 30';
-  robotVacuumButton.textContent = robotVacuumOwned ? t('shop.owned') : '💎 200';
+  coinBoostButton.innerHTML = boostRemaining > 0
+    ? `${uiIcon('timer')} ${formatCountdown(boostRemaining)}`
+    : `${uiIcon('gem')} 30`;
+  robotVacuumButton.innerHTML = robotVacuumOwned ? t('shop.owned') : `${uiIcon('gem')} 200`;
   robotVacuumButton.disabled = robotVacuumOwned;
   robotVacuumButton.classList.toggle('owned', robotVacuumOwned);
   removeAdsButton.textContent = adsRemoved ? t('shop.owned') : 'VX';

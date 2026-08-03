@@ -163,7 +163,7 @@ const ko: Dict = {
   'combo.label': '콤보',
   'hint.chestOpen': 'F · 보물상자 열기',
   'hint.chestClaimed': '오늘 완료 · 내일 다시',
-  'notice.chestOpened': '🎁 일일 보물상자 개봉!',
+  'notice.chestOpened': '일일 보물상자 개봉!',
   'settings.bgmVolume': 'BGM 볼륨',
   'settings.sfxVolume': '효과음 볼륨',
   'settings.sensitivity': '마우스 감도',
@@ -171,10 +171,10 @@ const ko: Dict = {
 
   'rotate.title': '기기를 가로로 돌려주세요',
   'rotate.body': 'Yard Sweep은 가로 화면에서 가장 편하게 플레이할 수 있어요.',
-  'rotate.fullscreenStart': '⛶ 전체화면으로 시작',
+  'rotate.fullscreenStart': '전체화면으로 시작',
 
   'unit.coinGain': '+{n} 코인',
-  'unit.gemGain': '+{n} 💎',
+  'unit.gemGain': '+{n} 보석',
 
   'notice.rotateDevice': '기기를 직접 가로로 돌려주세요',
   'notice.missionClaimed': '{label} 보상 수령!',
@@ -198,7 +198,7 @@ const ko: Dict = {
   'ad.playing': '광고 재생 중...',
   'ad.gemAd.title': '광고 보고 보석 받기',
   'ad.gemAd.desc': '30분마다 광고를 보고 보석 30개를 받을 수 있습니다',
-  'ad.watchForGems': '📺 {gems}💎 받기',
+  'ad.watchForGems': '보석 {gems}개 받기',
   'ad.watchFull': '광고를 끝까지 시청해주세요',
   'notice.gemAdClaimed': '보석 +{gems}개 획득!',
   'tab.vxshop': 'VX 상점',
@@ -371,7 +371,7 @@ const en: Dict = {
   'combo.label': 'COMBO',
   'hint.chestOpen': 'F · Open chest',
   'hint.chestClaimed': 'Claimed · back tomorrow',
-  'notice.chestOpened': '🎁 Daily treasure opened!',
+  'notice.chestOpened': 'Daily treasure opened!',
   'settings.bgmVolume': 'BGM Volume',
   'settings.sfxVolume': 'SFX Volume',
   'settings.sensitivity': 'Mouse Sensitivity',
@@ -379,10 +379,10 @@ const en: Dict = {
 
   'rotate.title': 'Please rotate your device',
   'rotate.body': 'Yard Sweep plays best in landscape mode.',
-  'rotate.fullscreenStart': '⛶ Start in fullscreen',
+  'rotate.fullscreenStart': 'Start in fullscreen',
 
   'unit.coinGain': '+{n} coins',
-  'unit.gemGain': '+{n} 💎',
+  'unit.gemGain': '+{n} gems',
 
   'notice.rotateDevice': 'Please rotate your device to landscape',
   'notice.missionClaimed': '{label} reward claimed!',
@@ -406,7 +406,7 @@ const en: Dict = {
   'ad.playing': 'Playing ad...',
   'ad.gemAd.title': 'Watch ad for gems',
   'ad.gemAd.desc': 'Watch an ad every 30 min to earn 30 gems',
-  'ad.watchForGems': '📺 {gems}💎 Claim',
+  'ad.watchForGems': 'Claim {gems} gems',
   'ad.watchFull': 'Please watch the full ad',
   'notice.gemAdClaimed': '+{gems} gems earned!',
   'tab.vxshop': 'VX Shop',

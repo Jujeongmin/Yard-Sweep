@@ -39,14 +39,14 @@ export const tools: Record<ToolId, ToolDefinition> = {
 export interface CategoryDefinition {
   id: CategoryId;
   name: string; // i18n key
-  icon: string; // HUD emoji
+  icon: string; // CSS icon name
   tools: ToolId[]; // 하위 정렬 순서(구매/장착 목록에 이 순서로 노출)
 }
 
 export const categories: Record<CategoryId, CategoryDefinition> = {
-  1: { id: 1, name: 'category.cleaning', icon: '🧹', tools: ['basicBroom', 'wideBroom', 'vacuum'] },
-  2: { id: 2, name: 'category.grass', icon: '🌿', tools: ['copperSickle', 'metalSickle', 'neonSickle'] },
-  3: { id: 3, name: 'category.stone', icon: '🪨', tools: ['pickaxe', 'neonPickaxe'] },
+  1: { id: 1, name: 'category.cleaning', icon: 'broom', tools: ['basicBroom', 'wideBroom', 'vacuum'] },
+  2: { id: 2, name: 'category.grass', icon: 'grass', tools: ['copperSickle', 'metalSickle', 'neonSickle'] },
+  3: { id: 3, name: 'category.stone', icon: 'stone', tools: ['pickaxe', 'neonPickaxe'] },
 };
 
 export const categoryOrder: CategoryId[] = [1, 2, 3];
