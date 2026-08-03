@@ -110,7 +110,7 @@ describe('Server', () => {
       server.connect({ account: 'playerX' });
       let error: any = null;
       try {
-        await server.updatePlayerStats(5, 1200);
+        await server.updatePlayerStats(5, 20);
       } catch (e: any) {
         error = e;
       }
@@ -120,22 +120,23 @@ describe('Server', () => {
     test('updatePlayerStats creates new entry with stored nickname', async (server) => {
       server.connect({ account: 'player1' });
       await server.setNickname('Hero');
-      const entry = await server.updatePlayerStats(5, 1200);
+      const entry = await server.updatePlayerStats(5, 20);
       expect(entry.account).toBe('player1');
       expect(entry.nickname).toBe('Hero');
       expect(entry.level).toBe(5);
-      expect(entry.exp).toBe(1200);
+      expect(entry.exp).toBe(20);
+      expect(entry.score).toBe(420);
     });
 
     test('updatePlayerStats updates existing entry', async (server) => {
       server.connect({ account: 'player2' });
       await server.setNickname('Warrior');
-      await server.updatePlayerStats(3, 500);
+      await server.updatePlayerStats(3, 50);
       await server.setNickname('WarriorX');
-      const updated = await server.updatePlayerStats(8, 3000);
+      const updated = await server.updatePlayerStats(8, 30);
       expect(updated.nickname).toBe('WarriorX');
       expect(updated.level).toBe(8);
-      expect(updated.exp).toBe(3000);
+      expect(updated.exp).toBe(30);
     });
 
     test('updatePlayerStats rejects invalid level', async (server) => {
@@ -143,7 +144,7 @@ describe('Server', () => {
       await server.setNickname('Hero');
       let error: any = null;
       try {
-        await server.updatePlayerStats(0, 100);
+        await server.updatePlayerStats(0, 10);
       } catch (e: any) {
         error = e;
       }
@@ -165,45 +166,73 @@ describe('Server', () => {
     test('getTopRankings returns players sorted by level then exp', async (server) => {
       server.connect({ account: 'alpha' });
       await server.setNickname('Alpha');
-      await server.updatePlayerStats(10, 5000);
+      await server.updatePlayerStats(10, 50);
 
       server.connect({ account: 'beta' });
       await server.setNickname('Beta');
-      await server.updatePlayerStats(10, 8000);
+      await server.updatePlayerStats(10, 80);
 
       server.connect({ account: 'gamma' });
       await server.setNickname('Gamma');
-      await server.updatePlayerStats(15, 1000);
+      await server.updatePlayerStats(15, 10);
 
       server.connect({ account: 'delta' });
       await server.setNickname('Delta');
-      await server.updatePlayerStats(5, 9000);
+      await server.updatePlayerStats(5, 90);
 
       const top = await server.getTopRankings();
       expect(top.length).toBeGreaterThanOrEqual(4);
       expect(top[0].nickname).toBe('Gamma');
       expect(top[1].level).toBe(10);
-      expect(top[1].exp).toBe(8000);
+      expect(top[1].exp).toBe(80);
       expect(top[2].level).toBe(10);
-      expect(top[2].exp).toBe(5000);
+      expect(top[2].exp).toBe(50);
     });
 
     test('getMyRank returns correct rank', async (server) => {
       server.connect({ account: 'rank1' });
       await server.setNickname('First');
-      await server.updatePlayerStats(100, 9999);
+      await server.updatePlayerStats(100, 99);
 
       server.connect({ account: 'rank2' });
       await server.setNickname('Second');
-      await server.updatePlayerStats(50, 5000);
+      await server.updatePlayerStats(50, 50);
 
       server.connect({ account: 'rank3' });
       await server.setNickname('Third');
-      await server.updatePlayerStats(20, 2000);
+      await server.updatePlayerStats(20, 20);
 
       const myRank = await server.getMyRank();
       expect(myRank.rank).toBe(3);
       expect(myRank.entry.nickname).toBe('Third');
+    });
+
+    test('resetAllData deletes only the current player ranking', async (server) => {
+      server.connect({ account: 'keep-player' });
+      await server.setNickname('Keeper');
+      await server.updatePlayerStats(9, 20);
+
+      server.connect({ account: 'reset-player' });
+      await server.setNickname('Resetter');
+      await server.updatePlayerStats(10, 30);
+      await server.resetAllData();
+
+      const resetRank = await server.getMyRank();
+      expect(resetRank.entry).toBeNull();
+
+      server.connect({ account: 'keep-player' });
+      const keptRank = await server.getMyRank();
+      expect(keptRank.entry.nickname).toBe('Keeper');
+    });
+
+    test('updatePlayerStats does not replace a higher score with stale progress', async (server) => {
+      server.connect({ account: 'steady-player' });
+      await server.setNickname('Steady');
+      await server.updatePlayerStats(12, 40);
+      const entry = await server.updatePlayerStats(8, 10);
+      expect(entry.level).toBe(12);
+      expect(entry.exp).toBe(40);
+      expect(entry.score).toBe(1140);
     });
   });
 

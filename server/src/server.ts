@@ -88,7 +88,7 @@ export class Server {
   async updatePlayerStats(
     level: number,
     exp: number,
-  ): Promise<{ __id: string; account: string; nickname: string; level: number; exp: number }> {
+  ): Promise<{ __id: string; account: string; nickname: string; level: number; exp: number; score: number }> {
     const myState = await $global.getMyState();
     const nickname = myState.nickname;
     if (!nickname) {
@@ -97,9 +97,11 @@ export class Server {
     if (typeof level !== 'number' || level < 1) {
       throw new Error('Level must be at least 1.');
     }
-    if (typeof exp !== 'number' || exp < 0) {
-      throw new Error('Exp must be 0 or greater.');
+    if (typeof exp !== 'number' || exp < 0 || exp >= 100) {
+      throw new Error('Exp must be between 0 and 99.');
     }
+
+    const score = (level - 1) * 100 + exp;
 
     const existingEntries = await $global.getCollectionItems('rankings', {
       filters: [{ field: 'account', operator: '==', value: $sender.account }],
@@ -110,13 +112,19 @@ export class Server {
       nickname,
       level,
       exp,
+      score,
       updatedAt: Date.now(),
     };
 
     if (existingEntries.length > 0) {
+      const existing = existingEntries[0];
+      // A stale client must not overwrite a player's higher leaderboard score.
+      const bestEntry = Number(existing.score) > score
+        ? { level: existing.level, exp: existing.exp, score: existing.score }
+        : { level, exp, score };
       const updated = await $global.updateCollectionItem(
         'rankings',
-        { ...entry, __id: existingEntries[0].__id },
+        { ...entry, ...bestEntry, __id: existing.__id },
       );
       return updated as any;
     } else {
@@ -156,23 +164,21 @@ export class Server {
   }
 
   async resetAllData(): Promise<{ success: boolean }> {
-    await $global.deleteCollection('rankings');
+    const myRankings = await $global.getCollectionItems('rankings', {
+      filters: [{ field: 'account', operator: '==', value: $sender.account }],
+    });
+    for (const entry of myRankings) {
+      await $global.deleteCollectionItem('rankings', entry.__id);
+    }
     await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null });
     return { success: true };
   }
 
   async getTopRankings(): Promise<any[]> {
-    const items = await $global.getCollectionItems('rankings', {
-      orderBy: [{ field: 'level', direction: 'desc' }],
-      limit: 100,
+    return await $global.getCollectionItems('rankings', {
+      orderBy: [{ field: 'score', direction: 'desc' }],
+      limit: 20,
     });
-
-    const sorted = items.sort((a: any, b: any) => {
-      if (b.level !== a.level) return b.level - a.level;
-      return b.exp - a.exp;
-    });
-
-    return sorted.slice(0, 20);
   }
 
   async getMyRank(): Promise<{
@@ -189,18 +195,17 @@ export class Server {
 
     const myEntry = myEntries[0];
 
-    const allItems = await $global.getCollectionItems('rankings', {
-      orderBy: [{ field: 'level', direction: 'desc' }],
-      limit: 500,
-    });
-
-    const sorted = allItems.sort((a: any, b: any) => {
-      if (b.level !== a.level) return b.level - a.level;
-      return b.exp - a.exp;
-    });
-
-    const rank = sorted.findIndex((item: any) => item.__id === myEntry.__id) + 1;
-
-    return { entry: myEntry, rank };
+    const [higherLevelCount, higherExpAtSameLevelCount] = await Promise.all([
+      $global.countCollectionItems('rankings', {
+        filters: [{ field: 'level', operator: '>', value: myEntry.level }],
+      }),
+      $global.countCollectionItems('rankings', {
+        filters: [
+          { field: 'level', operator: '==', value: myEntry.level },
+          { field: 'exp', operator: '>', value: myEntry.exp },
+        ],
+      }),
+    ]);
+    return { entry: myEntry, rank: higherLevelCount + higherExpAtSameLevelCount + 1 };
   }
 }

@@ -8,6 +8,8 @@ let nickname: string | null = null;
 let lastSyncTime = 0;
 let pendingLevel = 0;
 let pendingExp = 0;
+let hasPendingStats = false;
+let syncInFlight = false;
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 let vxShopReady = false;
 
@@ -62,6 +64,9 @@ export async function setNickname(value: string) {
     await server.remoteFunction('setNickname', [value.trim()]);
     nickname = value.trim();
     updateNicknameUI();
+    lastSyncTime = 0;
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+    await flushPendingStats();
     return null;
   } catch (e: any) {
     return e?.message || t('settings.nicknameFail');
@@ -119,17 +124,35 @@ export async function syncStats(level: number, exp: number) {
   if (!server || !connected) return;
   pendingLevel = level;
   pendingExp = exp;
-  const now = Date.now();
-  if (now - lastSyncTime >= 600000) {
-    lastSyncTime = now;
-    server.remoteFunction('updatePlayerStats', [level, exp]).catch(() => {});
-    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
-  } else if (!syncTimer) {
-    syncTimer = setTimeout(() => {
-      lastSyncTime = Date.now();
-      server!.remoteFunction('updatePlayerStats', [pendingLevel, pendingExp]).catch(() => {});
-      syncTimer = null;
-    }, 600000 - (now - lastSyncTime));
+  hasPendingStats = true;
+  scheduleStatsSync(Math.max(0, 600000 - (Date.now() - lastSyncTime)));
+}
+
+function scheduleStatsSync(delay: number) {
+  if (syncTimer) return;
+  syncTimer = setTimeout(() => {
+    syncTimer = null;
+    void flushPendingStats();
+  }, delay);
+}
+
+async function flushPendingStats() {
+  if (!server || !connected || !hasPendingStats || syncInFlight) return;
+  syncInFlight = true;
+  const level = pendingLevel;
+  const exp = pendingExp;
+  try {
+    await server.remoteFunction('updatePlayerStats', [level, exp]);
+    lastSyncTime = Date.now();
+    if (pendingLevel === level && pendingExp === exp) hasPendingStats = false;
+  } catch {
+    // Keep the latest score pending and retry instead of silently losing it.
+    scheduleStatsSync(30000);
+  } finally {
+    syncInFlight = false;
+    if (hasPendingStats && !syncTimer) {
+      scheduleStatsSync(Math.max(0, 600000 - (Date.now() - lastSyncTime)));
+    }
   }
 }
 
@@ -157,7 +180,7 @@ export async function loadRankings() {
     const myRank = mine as { entry: any | null; rank: number };
 
     if (myRank.entry) {
-      myRankEl.textContent = `#${myRank.rank} · Lv.${myRank.entry.level} · ${myRank.entry.exp.toLocaleString()} XP`;
+      myRankEl.textContent = `#${myRank.rank} · Lv.${myRank.entry.level} · ${myRank.entry.exp.toLocaleString()}/100 XP`;
     } else {
       myRankEl.textContent = '-';
     }
@@ -169,7 +192,7 @@ export async function loadRankings() {
             <span class="ranking-rank">#${i + 1}</span>
             <div>
               <h3>${escapeHTML(entry.nickname)}</h3>
-              <p>Lv.${entry.level} · ${entry.exp.toLocaleString()} XP</p>
+              <p>Lv.${entry.level} · ${entry.exp.toLocaleString()}/100 XP</p>
             </div>
           </article>`,
       )
