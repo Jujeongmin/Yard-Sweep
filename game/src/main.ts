@@ -36,7 +36,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x66c8f2);
 scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
 
-const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 100);
 const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 13 : 11;
 camera.position.set(0, 1.85, cameraBaseZ);
 scene.add(camera);
@@ -1151,7 +1151,6 @@ const meterFill = meter.querySelector<HTMLElement>('i')!;
 const meterLabel = meter.querySelector<HTMLElement>('strong')!;
 const feedback = document.querySelector<HTMLElement>('#feedback')!;
 const notice = document.querySelector<HTMLElement>('#notice')!;
-const hint = document.querySelector<HTMLElement>('#tool-hint')!;
 const start = document.querySelector<HTMLButtonElement>('#start')!;
 const tutorialEl = document.querySelector<HTMLElement>('#tutorial')!;
 const tutorialTextEl = document.querySelector<HTMLElement>('#tutorial-text')!;
@@ -1406,7 +1405,6 @@ function updateToolHintUi(toolId: ToolId) {
   radiusEl.style.width = `${uiSize}px`;
   radiusEl.style.height = `${uiSize}px`;
   radiusEl.querySelector('span')!.textContent = `${ui.icon} ${t(tool.name)}`;
-  hint.textContent = t('hint.toolTargets', { tool: t(tool.name), targets: tool.validTargets.map((kind) => t(objects[kind].label)).join(', ') });
 }
 // 인벤토리 3슬롯(카테고리)의 아이콘/라벨/활성 표시 갱신
 function refreshInventoryBar() {
@@ -2367,10 +2365,14 @@ canvas.addEventListener('touchend', releaseCanvasTouch, { passive: true });
 canvas.addEventListener('touchcancel', releaseCanvasTouch, { passive: true });
 
 function resize() {
-  renderer.setSize(innerWidth, innerHeight, false);
-  // aspect는 항상 실제 뷰포트에 맞춘다. (예전엔 세로 모드를 건너뛰었는데, 전체화면/회전
-  // 전환 중 세로 타이밍에 걸리면 aspect가 낡은 값으로 고정돼 화면이 확 당겨 보이는 버그가 있었음)
-  camera.aspect = innerWidth / innerHeight;
+  // 모바일 주소창·전체화면·회전 중에는 innerWidth/innerHeight와 실제 CSS 캔버스 크기가
+  // 서로 다른 프레임에 갱신될 수 있다. 렌더 버퍼와 카메라가 같은 실측값을 사용해야
+  // 화면이 가로 또는 세로로 눌리는 현상이 생기지 않는다.
+  const bounds = canvas.getBoundingClientRect();
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
   camera.updateProjectionMatrix();
   // F11/브라우저 자체 전체화면은 fullscreenchange 없이 resize만 발생시키므로 여기서도 재확인
   if (gameStarted) refreshFullscreenBanner();
@@ -2384,6 +2386,8 @@ function resizeSoon() {
 window.addEventListener('resize', resize);
 window.addEventListener('orientationchange', resizeSoon);
 document.addEventListener('fullscreenchange', resizeSoon);
+window.visualViewport?.addEventListener('resize', resizeSoon);
+new ResizeObserver(resize).observe(canvas);
 resize();
 enterRegion(currentRegionId);
 selectCategory(1);

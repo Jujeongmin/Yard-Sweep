@@ -32,7 +32,9 @@
 }
 
 * { box-sizing: border-box; }
-html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { position: fixed; inset: 0; }
+#app { width: 100%; height: 100%; height: 100dvh; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 button { font: inherit; }
 #game { display: block; width: 100%; height: 100%; }
 
@@ -218,13 +220,6 @@ button { font: inherit; }
 @keyframes reward {
   20% { opacity:1; transform:translate(-50%,-8px) scale(1.15); }
   100% { opacity:0; transform:translate(-50%,-55px); }
-}
-.tool-hint {
-  position: fixed; z-index: 4; left: 50%;
-  bottom: clamp(8px, 2vw, 54px); transform: translateX(-50%);
-  padding: clamp(5px,0.8vw,7px) clamp(10px,1.8vw,15px);
-  border-radius: var(--radius-md); background: rgba(13,31,42,.68);
-  font-size: var(--fs-sm); pointer-events: none;
 }
 .controls {
   position: fixed; z-index: 4; left: clamp(10px,2vw,16px);
@@ -488,7 +483,6 @@ button { font: inherit; }
   .hud { display: none; }
   .inventory { display: none; }
   .controls { display: none; }
-  .tool-hint { display: none; }
   .cleaning-radius { display: none; }
   #clean-meter { display: none; }
   .tutorial { display: none; }
@@ -535,7 +529,6 @@ button { font: inherit; }
   .slot-glyph { height: clamp(22px,4vw,25px); font-size: clamp(18px,3.5vw,22px); line-height: clamp(20px,3.5vw,22px); }
   .slot small { font-size: 0; }
   .slot kbd { display: none; }
-  .tool-hint { bottom: calc(clamp(6px,1vw,8px) + var(--safe-b)); }
   .controls { display: none; }
   .button-key { display: none; }
   #mobile-controls { display: block; }
