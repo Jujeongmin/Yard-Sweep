@@ -414,6 +414,83 @@ for (let i = 0; i < (isTouchDevice() ? 9 : 18); i++) {
 stoneDecor.visible = false;
 scene.add(stoneDecor);
 
+// Perimeter scenery hides the abrupt edge of the playable ground while keeping the
+// front path open. Everything sits outside the player clamp (x ±20, z ±16), so it
+// does not alter movement or cleanable spawn positions.
+const perimeterDecor = new THREE.Group();
+const fenceMaterial = new THREE.MeshStandardMaterial({ color: 0xd7b37a, roughness: 0.95 });
+const perimeterTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x785037, roughness: 1 });
+const perimeterFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x4f913f, flatShading: true, roughness: 1 });
+const fencePostGeometry = new THREE.BoxGeometry(0.22, 1.5, 0.22);
+const sideRailGeometry = new THREE.BoxGeometry(0.14, 0.14, 3.05);
+const frontRailGeometry = new THREE.BoxGeometry(3.05, 0.14, 0.14);
+const shrubGeometry = new THREE.IcosahedronGeometry(0.72, 1);
+
+function addFencePost(x: number, z: number) {
+  const post = new THREE.Mesh(fencePostGeometry, fenceMaterial);
+  post.position.set(x, 0.75, z);
+  post.castShadow = post.receiveShadow = true;
+  perimeterDecor.add(post);
+}
+
+function addFenceRails(x: number, z: number, side: boolean) {
+  for (const y of [0.5, 1.05]) {
+    const rail = new THREE.Mesh(side ? sideRailGeometry : frontRailGeometry, fenceMaterial);
+    rail.position.set(x, y, z);
+    rail.castShadow = rail.receiveShadow = true;
+    perimeterDecor.add(rail);
+  }
+}
+
+function addPerimeterShrub(x: number, z: number, scale = 1) {
+  const shrub = new THREE.Mesh(shrubGeometry, perimeterFoliageMaterial);
+  shrub.position.set(x, 0.48 * scale, z);
+  shrub.scale.set(1.15 * scale, 0.7 * scale, scale);
+  shrub.castShadow = shrub.receiveShadow = true;
+  perimeterDecor.add(shrub);
+}
+
+function addPerimeterTree(x: number, z: number, scale: number) {
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22 * scale, 0.32 * scale, 2.6 * scale, 7),
+    perimeterTrunkMaterial,
+  );
+  trunk.position.set(x, 1.3 * scale, z);
+  trunk.castShadow = true;
+  perimeterDecor.add(trunk);
+  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.35 * scale, 1), perimeterFoliageMaterial);
+  crown.position.set(x, 3.25 * scale, z);
+  crown.scale.y = 0.9;
+  crown.castShadow = true;
+  perimeterDecor.add(crown);
+}
+
+for (const x of [-21.25, 21.25]) {
+  for (let z = -16.5; z <= 16.5; z += 3) {
+    addFencePost(x, z);
+    if (z < 16.5) addFenceRails(x, z + 1.5, true);
+    if (Math.round((z + 16.5) / 3) % 2 === 0) addPerimeterShrub(x * 0.985, z + 0.5, 0.9);
+  }
+}
+// Front fence has a wide opening aligned with the path.
+for (let x = -21; x <= 21; x += 3) {
+  if (Math.abs(x) < 3) continue;
+  addFencePost(x, 18.1);
+  if (x < -3 || (x >= 3 && x < 21)) addFenceRails(x + 1.5, 18.1, false);
+  if (Math.abs(x) > 4 && Math.round((x + 21) / 3) % 2 === 0) addPerimeterShrub(x + 0.7, 17.75, 0.95);
+}
+for (const [x, z, scale] of [
+  [-19, 18.4, 0.9], [-13, 18.7, 1.1], [-7, 18.5, 0.85],
+  [7, 18.5, 0.9], [13, 18.7, 1.05], [19, 18.4, 0.88],
+] as Array<[number, number, number]>) addPerimeterTree(x, z, scale);
+scene.add(perimeterDecor);
+
+const perimeterFoliageColors: Record<RegionId, number> = {
+  1: 0x4f913f,
+  2: 0x347b43,
+  3: 0x746f4c,
+};
+
 function applyRegionTheme(regionId: RegionId) {
   const theme = regionThemes[regionId];
   scene.background = new THREE.Color(theme.sky);
@@ -422,6 +499,7 @@ function applyRegionTheme(regionId: RegionId) {
   (path.material as THREE.MeshStandardMaterial).color.setHex(theme.path);
   gardenDecor.visible = regionId === 2;
   stoneDecor.visible = regionId === 3;
+  perimeterFoliageMaterial.color.setHex(perimeterFoliageColors[regionId]);
 }
 
 function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
