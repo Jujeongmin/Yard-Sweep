@@ -550,6 +550,9 @@ button { font: inherit; }
 /* ── Portrait mobile: force landscape fullscreen ── */
 /* 태블릿 세로(768px 이상)도 포함되도록 너비 조건 제거 */
 @media (pointer: coarse) and (orientation: portrait) {
+  /* 로딩 화면(z-index 1000)이 회전 안내(z-index 100)를 덮어버리므로 세로에선 숨긴다.
+     에셋 다운로드도 가로로 돌린 뒤에 시작한다(main.ts startAssetLoadWhenReady). */
+  #loading-screen { display: none; }
   .hud { display: none; }
   .inventory { display: none; }
   .controls { display: none; }

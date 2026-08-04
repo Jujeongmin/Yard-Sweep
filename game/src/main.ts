@@ -2729,6 +2729,20 @@ function applyLocale() {
 
 animate();
 applyLocale();
-void prepareGameAssets().then(() => {
-  if (isTouchDevice()) startGame();
-});
+// 세로 모드에선 회전 안내만 띄우고 에셋 다운로드를 미룬다.
+// 가로로 돌린 뒤에 받아야 로딩 진행률이 실제로 보이고, 세로로 둔 채 방치해서
+// 데이터만 쓰는 상황도 막을 수 있다. (CSS도 세로에선 #loading-screen을 숨긴다)
+let assetLoadStarted = false;
+function startAssetLoadWhenReady() {
+  if (assetLoadStarted) return;
+  if (matchMedia('(pointer: coarse) and (orientation: portrait)').matches) return;
+  assetLoadStarted = true;
+  void prepareGameAssets().then(() => {
+    if (isTouchDevice()) startGame();
+  });
+}
+startAssetLoadWhenReady();
+// 기기·브라우저마다 발화하는 이벤트가 달라 셋 다 걸어둔다(중복 호출은 플래그로 무시).
+matchMedia('(orientation: portrait)').addEventListener('change', startAssetLoadWhenReady);
+window.addEventListener('orientationchange', startAssetLoadWhenReady);
+window.addEventListener('resize', startAssetLoadWhenReady);
