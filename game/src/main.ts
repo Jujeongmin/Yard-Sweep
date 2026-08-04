@@ -19,6 +19,7 @@ import {
 import { getLocale, setLocale, t } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
+import { claimAdReward } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -1952,12 +1953,19 @@ function grantAdDoubleReward(instant = false) {
   regionAdDoubleBtn.disabled = true;
   regionAdStatus.classList.remove('hidden');
   regionAdStatus.textContent = t('ad.playing');
-  showRewardAd('region-double-reward', (rewarded) => {
-    if (rewarded) apply();
-    else {
+  showRewardAd('region-double-reward', async (outcome) => {
+    if (outcome.status === 'rewarded') {
+      // 서버가 실제 시청을 검증하고 requestId 재사용을 막은 뒤에만 지급한다.
+      const claim = await claimAdReward('region-double-reward', outcome.requestId);
+      if (claim.granted) { apply(); return; }
       regionAdDoubleBtn.disabled = false;
-      regionAdStatus.textContent = t('ad.watchFull');
+      regionAdStatus.textContent = t('ad.verifyFailed');
+      return;
     }
+    regionAdDoubleBtn.disabled = false;
+    if (outcome.status === 'dismissed') regionAdStatus.textContent = t('ad.watchFull');
+    else if (outcome.code === 'busy') regionAdStatus.classList.add('hidden');
+    else regionAdStatus.textContent = t('ad.unavailable');
   });
 }
 regionAdDoubleBtn.addEventListener('click', (e) => {
@@ -1972,17 +1980,28 @@ function grantGemAdReward() {
   if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN || isAdBusy()) return;
   gemAdBtn.disabled = true;
   gemAdBtn.textContent = t('ad.playing');
-  showRewardAd('gem-reward-30', (rewarded) => {
-    if (rewarded) {
-      gems += GEM_AD_REWARD;
-      lastGemAdTime = Date.now();
-      updateHud(0, GEM_AD_REWARD);
-      persist();
-      refreshShop();
-      showNotice(t('notice.gemAdClaimed', { gems: GEM_AD_REWARD }));
-    } else {
-      updateGemAdBtn();
+  showRewardAd('gem-reward-30', async (outcome) => {
+    if (outcome.status === 'rewarded') {
+      // 보석은 실제 판매하는 재화이므로 지급량을 클라이언트가 정하지 않는다.
+      // 서버가 검증 후 crystals에 적립하고, 적립된 액수를 받아서 반영한다.
+      const claim = await claimAdReward('gem-reward-30', outcome.requestId);
+      if (claim.granted) {
+        const gained = claim.gems;
+        gems += gained;
+        lastGemAdTime = Date.now();
+        updateHud(0, gained);
+        persist();
+        refreshShop();
+        showNotice(t('notice.gemAdClaimed', { gems: gained }));
+      } else {
+        showNotice(t('ad.verifyFailed'));
+        updateGemAdBtn();
+      }
+      return;
     }
+    if (outcome.status === 'dismissed') showNotice(t('ad.watchFull'));
+    else if (outcome.code !== 'busy') showNotice(t('ad.unavailable'));
+    updateGemAdBtn();
   });
 }
 

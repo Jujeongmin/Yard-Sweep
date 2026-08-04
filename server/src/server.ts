@@ -66,6 +66,76 @@ export class Server {
     return { success: true };
   }
 
+  // ── 리워드 광고 서버 검증 (docs.verse8.io/ko/docs/ads/intro) ──
+  // 지급량은 반드시 이 테이블에서만 나온다. 클라이언트나 verifier 응답의 값을 쓰지 않는다.
+  // region-double-reward의 코인/보석 2배는 지역 완료 자체가 클라이언트 판정이라
+  // 서버가 액수를 알 수 없다. 여기서는 "광고를 실제로 봤는가"만 검증하고(gems: 0),
+  // 배수 적용은 클라이언트가 한다.
+  private AD_PLACEMENTS: Record<string, { gems: number }> = {
+    'gem-reward-30': { gems: 30 },
+    'region-double-reward': { gems: 0 },
+  };
+
+  private async isAdVerified(requestId: string, attempts = 4): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      let res: Response;
+      try {
+        res = await fetch(
+          `https://ads-verifier.verse8.io/ads/status?requestId=${encodeURIComponent(requestId)}`,
+        );
+      } catch {
+        return false;
+      }
+      if (!res.ok && res.status !== 202) return false;
+      const body = await res.json() as { status?: string };
+      if (body.status === 'verified') return true;
+      if (body.status === 'pending') {
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      return false; // dismissed | failed
+    }
+    return false; // 재시도 예산 소진
+  }
+
+  async claimAdReward(
+    placementId: string,
+    requestId: string,
+  ): Promise<{ granted: boolean; gems: number; reason?: string }> {
+    if (typeof requestId !== 'string' || !requestId) {
+      return { granted: false, gems: 0, reason: 'missing_requestId' };
+    }
+    const reward = this.AD_PLACEMENTS[placementId];
+    if (!reward) {
+      return { granted: false, gems: 0, reason: 'unknown_placement' };
+    }
+
+    // 이미 지급된 requestId면 광고 검증을 다시 호출하지 않고 즉시 차단.
+    const state = await $global.getMyState();
+    const claimed: string[] = state.adClaimedRequests || [];
+    if (claimed.includes(requestId)) {
+      return { granted: false, gems: 0, reason: 'already_granted' };
+    }
+
+    if (!(await this.isAdVerified(requestId))) {
+      return { granted: false, gems: 0, reason: 'verification_failed' };
+    }
+
+    // 검증 대기 중 다른 요청이 먼저 지급했을 수 있으므로 상태를 다시 읽는다.
+    const fresh = await $global.getMyState();
+    const freshClaimed: string[] = fresh.adClaimedRequests || [];
+    if (freshClaimed.includes(requestId)) {
+      return { granted: false, gems: 0, reason: 'already_granted' };
+    }
+
+    const crystals = (Number(fresh.crystals) || 0) + reward.gems;
+    // 무한 증가를 막기 위해 최근 200건만 보관한다.
+    const nextClaimed = [...freshClaimed, requestId].slice(-200);
+    await $global.updateMyState({ crystals, adClaimedRequests: nextClaimed });
+
+    return { granted: true, gems: reward.gems };
+  }
+
   async getVxState(): Promise<{ crystals: number; adRemoved: boolean }> {
     const state = await $global.getMyState();
     return {
@@ -190,7 +260,7 @@ export class Server {
     for (const entry of myRankings) {
       await $global.deleteCollectionItem('rankings', entry.__id);
     }
-    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null });
+    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null, adClaimedRequests: null });
     return { success: true };
   }
 

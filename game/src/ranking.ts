@@ -50,6 +50,21 @@ export async function fetchVxServerState(): Promise<{ crystals: number; adRemove
   }
 }
 
+// 리워드 광고 서버 검증. 지급 여부·지급량은 전적으로 서버가 정한다.
+// 서버 미연결이면 granted:false — 검증 없이 지급하지 않는다.
+export async function claimAdReward(
+  placementId: string,
+  requestId: string,
+): Promise<{ granted: boolean; gems: number; reason?: string }> {
+  if (!server || !connected) return { granted: false, gems: 0, reason: 'not_connected' };
+  try {
+    return await server.remoteFunction('claimAdReward', [placementId, requestId]) as
+      { granted: boolean; gems: number; reason?: string };
+  } catch (e: any) {
+    return { granted: false, gems: 0, reason: e?.message || 'error' };
+  }
+}
+
 export function isConnected() {
   return connected;
 }
