@@ -1279,8 +1279,10 @@ const FOOTSTEP_BASE_VOLUME = 0.35;
 const CLEANING_BASE_VOLUME = 0.6;
 const DOOR_BASE_VOLUME = 0.6;
 
+// BGM 3곡은 합쳐서 ~9MB라 전부 미리 받으면 첫 로딩이 크게 느려진다.
+// 시작 시엔 현재 지역 곡만 받고, 나머지는 그 지역에 들어갈 때 받는다.
 const bgmTracks = [0, 1, 2].map((index) => new Audio(`/assets/bgm-${index}.mp3`));
-bgmTracks.forEach((audio) => { audio.loop = true; });
+bgmTracks.forEach((audio) => { audio.loop = true; audio.preload = 'none'; });
 const buttonSound = new Audio('/assets/button-sound.mp3');
 const regionCompleteSound = new Audio('/assets/region-complete-sound.mp3');
 const coinSound = new Audio('/assets/coin-sound.mp3');
@@ -1306,8 +1308,8 @@ const robotVacuumSound = new Audio('/assets/vacuum-sound.mp3');
 robotVacuumSound.loop = true;
 let activeCleaningSound: HTMLAudioElement | undefined;
 
+// 로딩 화면에서 미리 받을 오디오. BGM은 여기 넣지 않는다(현재 지역 곡만 따로 받는다).
 const allAudio = [
-  ...bgmTracks,
   buttonSound,
   regionCompleteSound,
   coinSound,
@@ -1359,6 +1361,8 @@ async function prepareGameAssets() {
     }),
     ...imagePaths.map(preloadImage),
     ...allAudio.map(preloadAudio),
+    // 현재 지역 BGM 1곡만. 나머지 2곡은 해당 지역 진입 시 playRegionBgm()이 받는다.
+    preloadAudio(bgmTracks[currentRegionId - 1]),
   ];
   let completed = 0;
   loadingProgress.style.width = '2%';
@@ -1406,7 +1410,10 @@ function setCleaningAudio(active: boolean) {
 
 function playRegionBgm() {
   bgmTracks.forEach((audio) => { audio.pause(); audio.currentTime = 0; });
-  if (gameStarted) void bgmTracks[currentRegionId - 1].play().catch(() => undefined);
+  const track = bgmTracks[currentRegionId - 1];
+  // preload='none'으로 두었으므로 이 지역 곡을 처음 틀 때 여기서 받기 시작한다.
+  if (track.preload !== 'auto') { track.preload = 'auto'; track.load(); }
+  if (gameStarted) void track.play().catch(() => undefined);
 }
 
 function usesMobileControls() {
