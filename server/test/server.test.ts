@@ -265,6 +265,30 @@ describe('Server', () => {
       expect(state.adRemoved).toBe(true);
     });
 
+    test('ad-free gem reward requires ad removal', async (server) => {
+      server.connect({ account: 'ad-free-denied' });
+      const result = await server.claimAdFreeGemReward();
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('ad_removal_required');
+    });
+
+    test('ad-removal owner receives instant gems once per cooldown', async (server) => {
+      server.connect({ account: 'ad-free-owner' });
+      await server.$onItemPurchased({ account: 'ad-free-owner', purchaseId: 5, productId: 'ad-removal', quantity: 1 });
+
+      const first = await server.claimAdFreeGemReward();
+      expect(first.granted).toBe(true);
+      expect(first.gems).toBe(30);
+
+      const second = await server.claimAdFreeGemReward();
+      expect(second.granted).toBe(false);
+      expect(second.reason).toBe('cooldown');
+      expect(second.retryAfterMs).toBeGreaterThan(0);
+
+      const state = await server.getVxState();
+      expect(state.crystals).toBe(30);
+    });
+
     test('duplicate purchaseId does not double-grant', async (server) => {
       server.connect({ account: 'vxbuyer6' });
       await server.$onItemPurchased({ account: 'vxbuyer6', purchaseId: 10, productId: 'gems-100', quantity: 1 });

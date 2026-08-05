@@ -116,6 +116,13 @@ export class Server {
     if (claimed.includes(requestId)) {
       return { granted: false, gems: 0, reason: 'already_granted' };
     }
+    if (placementId === 'gem-reward-30') {
+      const cooldown = 30 * 60 * 1000;
+      const retryAfterMs = cooldown - (Date.now() - (Number(state.lastGemRewardAt) || 0));
+      if (retryAfterMs > 0) {
+        return { granted: false, gems: 0, reason: 'cooldown' };
+      }
+    }
 
     if (!(await this.isAdVerified(requestId))) {
       return { granted: false, gems: 0, reason: 'verification_failed' };
@@ -131,9 +138,38 @@ export class Server {
     const crystals = (Number(fresh.crystals) || 0) + reward.gems;
     // 무한 증가를 막기 위해 최근 200건만 보관한다.
     const nextClaimed = [...freshClaimed, requestId].slice(-200);
-    await $global.updateMyState({ crystals, adClaimedRequests: nextClaimed });
+    await $global.updateMyState({
+      crystals,
+      adClaimedRequests: nextClaimed,
+      ...(placementId === 'gem-reward-30' ? { lastGemRewardAt: Date.now() } : {}),
+    });
 
     return { granted: true, gems: reward.gems };
+  }
+
+  async claimAdFreeGemReward(): Promise<{
+    granted: boolean;
+    gems: number;
+    retryAfterMs?: number;
+    reason?: string;
+  }> {
+    const state = await $global.getMyState();
+    if (!state.adRemoved) {
+      return { granted: false, gems: 0, reason: 'ad_removal_required' };
+    }
+
+    const cooldown = 30 * 60 * 1000;
+    const now = Date.now();
+    const lastClaimedAt = Number(state.lastGemRewardAt) || 0;
+    const retryAfterMs = cooldown - (now - lastClaimedAt);
+    if (retryAfterMs > 0) {
+      return { granted: false, gems: 0, retryAfterMs, reason: 'cooldown' };
+    }
+
+    const gems = 30;
+    const crystals = (Number(state.crystals) || 0) + gems;
+    await $global.updateMyState({ crystals, lastGemRewardAt: now });
+    return { granted: true, gems };
   }
 
   async getVxState(): Promise<{ crystals: number; adRemoved: boolean }> {
@@ -260,7 +296,7 @@ export class Server {
     for (const entry of myRankings) {
       await $global.deleteCollectionItem('rankings', entry.__id);
     }
-    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null, adClaimedRequests: null });
+    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null, adClaimedRequests: null, lastGemRewardAt: null });
     return { success: true };
   }
 

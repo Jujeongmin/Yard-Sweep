@@ -65,6 +65,25 @@ export async function claimAdReward(
   }
 }
 
+export async function claimAdFreeGemReward(): Promise<{
+  granted: boolean;
+  gems: number;
+  retryAfterMs?: number;
+  reason?: string;
+}> {
+  if (!server || !connected) return { granted: false, gems: 0, reason: 'not_connected' };
+  try {
+    return await server.remoteFunction('claimAdFreeGemReward') as {
+      granted: boolean;
+      gems: number;
+      retryAfterMs?: number;
+      reason?: string;
+    };
+  } catch (e: any) {
+    return { granted: false, gems: 0, reason: e?.message || 'error' };
+  }
+}
+
 export function isConnected() {
   return connected;
 }

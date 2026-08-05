@@ -19,7 +19,7 @@ import {
 import { getLocale, setLocale, t } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
-import { claimAdReward } from './ranking';
+import { claimAdReward, claimAdFreeGemReward } from './ranking';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -2089,11 +2089,34 @@ regionAdDoubleBtn.addEventListener('click', (e) => {
 });
 
 const gemAdBtn = document.querySelector<HTMLButtonElement>('#buy-gem-ad')!;
+const gemAdGlyph = document.querySelector<HTMLElement>('#gem-ad-glyph')!;
+const gemAdTitle = document.querySelector<HTMLElement>('#gem-ad-title')!;
+const gemAdDesc = document.querySelector<HTMLElement>('#gem-ad-desc')!;
 let gemAdTimer: ReturnType<typeof setInterval> | null = null;
 
-function grantGemAdReward() {
+async function grantGemAdReward() {
   if (Date.now() - lastGemAdTime < GEM_AD_COOLDOWN || isAdBusy()) return;
   gemAdBtn.disabled = true;
+  if (adsRemoved) {
+    gemAdBtn.textContent = t('ad.claiming');
+    const claim = await claimAdFreeGemReward();
+    if (claim.granted) {
+      gems += claim.gems;
+      lastGemAdTime = Date.now();
+      updateHud(0, claim.gems);
+      persist();
+      refreshShop();
+      showNotice(t('notice.gemAdClaimed', { gems: claim.gems }));
+    } else {
+      if (claim.reason === 'cooldown' && claim.retryAfterMs) {
+        lastGemAdTime = Date.now() - (GEM_AD_COOLDOWN - claim.retryAfterMs);
+      } else {
+        showNotice(t('ad.verifyFailed'));
+      }
+      updateGemAdBtn();
+    }
+    return;
+  }
   gemAdBtn.textContent = t('ad.playing');
   showRewardAd('gem-reward-30', async (outcome) => {
     if (outcome.status === 'rewarded') {
@@ -2121,10 +2144,15 @@ function grantGemAdReward() {
 }
 
 function updateGemAdBtn() {
+  gemAdGlyph.innerHTML = uiIcon(adsRemoved ? 'gem' : 'video');
+  gemAdTitle.textContent = t(adsRemoved ? 'ad.gemAd.adFreeTitle' : 'ad.gemAd.title');
+  gemAdDesc.textContent = t(adsRemoved ? 'ad.gemAd.adFreeDesc' : 'ad.gemAd.desc');
   const remaining = GEM_AD_COOLDOWN - (Date.now() - lastGemAdTime);
   if (remaining <= 0) {
     gemAdBtn.disabled = false;
-    gemAdBtn.innerHTML = `${uiIcon('video')} ${t('ad.watchForGems', { gems: GEM_AD_REWARD })}`;
+    gemAdBtn.innerHTML = adsRemoved
+      ? `${uiIcon('gem')} ${t('ad.claimWithoutAd', { gems: GEM_AD_REWARD })}`
+      : `${uiIcon('video')} ${t('ad.watchForGems', { gems: GEM_AD_REWARD })}`;
   } else {
     gemAdBtn.disabled = true;
     const mins = Math.floor(remaining / 60000);
@@ -2134,7 +2162,7 @@ function updateGemAdBtn() {
 }
 
 gemAdBtn.addEventListener('click', () => {
-  grantGemAdReward();
+  void grantGemAdReward();
 });
 
 if (gemAdTimer) clearInterval(gemAdTimer);
@@ -2854,4 +2882,3 @@ startAssetLoadWhenReady();
 matchMedia('(orientation: portrait)').addEventListener('change', startAssetLoadWhenReady);
 window.addEventListener('orientationchange', startAssetLoadWhenReady);
 window.addEventListener('resize', startAssetLoadWhenReady);
-
