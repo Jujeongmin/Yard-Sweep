@@ -252,6 +252,8 @@ function applyGraphicsQuality(quality: GraphicsQuality) {
   sun.shadow.map?.dispose();
   sun.shadow.map = null;
   renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixelRatio));
+  // 낙엽은 '높음'에서만 3D 모델을 쓰므로 품질을 바꾸면 이미 놓인 낙엽도 갈아끼운다.
+  refreshLeafVisuals();
 }
 
 const cleanables: Cleanable[] = [];
@@ -512,8 +514,17 @@ function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
   return group;
 }
 
-function createLeaf(x: number, z: number) {
-  const group = cleanableGroup('leaf', x, z);
+// 낙엽 3D 모델은 포토그래메트리 스캔이라 압축 한계까지 줄여도 약 2.5만 정점이다.
+// 지역당 100개면 250만 정점이라 약한 기기에서 감당이 안 되므로, 그래픽 품질이 '높음'일 때만 쓰고
+// 낮음/보통에서는 기존 평면 낙엽(정점 10개 남짓)을 그대로 쓴다.
+const LEAF_MODEL_PATH = '/assets/Leaf.glb';
+const LEAF_WIDTH = 0.42; // 평면 낙엽과 비슷한 크기로 정규화
+let leafPrototype: THREE.Group | null = null;
+function useLeafModel() {
+  return settings.graphicsQuality === 'high' && leafPrototype !== null;
+}
+
+function buildFlatLeaf(group: THREE.Group) {
   // Five-lobed maple leaf silhouette (top, two upper side, two lower side lobes) with a short stem.
   const shape = new THREE.Shape();
   shape.moveTo(0, 0.5);
@@ -538,6 +549,53 @@ function createLeaf(x: number, z: number) {
   mesh.scale.setScalar(0.55 + Math.random() * 0.45);
   mesh.castShadow = true;
   group.add(mesh);
+}
+
+// 낙엽 모델은 1.1MB에 정점도 많아 로딩 화면을 붙잡을 이유가 없다(없어도 평면 낙엽으로 플레이 가능).
+// 로딩과 무관하게 백그라운드로 받아서, 준비되면 그때 겉모습만 갈아끼운다.
+function loadLeafModelInBackground() {
+  void loadModelScene(LEAF_MODEL_PATH).then((source) => {
+    // GLB 루트가 자체 변환(Sketchfab 모델은 회전·스케일을 갖고 있다)을 가지므로 덮어쓰지 않고
+    // 래퍼로 감싸서 정규화한다. 그래야 인스턴스에서 크기를 흔들어도 밑동이 지면에 붙어 있다.
+    const inner = source.clone(true);
+    const bounds = new THREE.Box3().setFromObject(inner);
+    const size = bounds.getSize(new THREE.Vector3());
+    const center = bounds.getCenter(new THREE.Vector3());
+    // 눕혀서 떨어진 잎이라 가로 폭 기준으로 정규화하고, 바닥에 닿게 내린다.
+    const scale = LEAF_WIDTH / Math.max(size.x, size.z, 0.001);
+    const offset = new THREE.Group();
+    offset.add(inner);
+    offset.position.set(-center.x, -bounds.min.y, -center.z);
+    const prototype = new THREE.Group();
+    prototype.add(offset);
+    prototype.scale.setScalar(scale);
+    prototype.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = false; });
+    registerSharedResources(prototype);
+    leafPrototype = prototype;
+    refreshLeafVisuals();
+  }).catch(() => { /* 실패해도 평면 낙엽으로 계속 플레이 가능 */ });
+}
+
+function attachLeafVisual(group: THREE.Group) {
+  if (!useLeafModel()) { buildFlatLeaf(group); return; }
+  const leaf = leafPrototype!.clone(true);
+  leaf.rotation.y = Math.random() * Math.PI * 2;
+  leaf.scale.multiplyScalar(0.8 + Math.random() * 0.4);
+  group.add(leaf);
+}
+
+function createLeaf(x: number, z: number) {
+  attachLeafVisual(cleanableGroup('leaf', x, z));
+}
+
+// 낙엽 모델 로드 완료 시점과 그래픽 품질 변경 시점에, 아직 청소되지 않은 낙엽의 겉모습만 갈아끼운다.
+// 그룹은 유지하므로 청소 진행도·위치는 보존된다.
+function refreshLeafVisuals() {
+  for (const object of cleanables) {
+    if (object.userData.kind !== 'leaf' || object.userData.cleaned) continue;
+    clearVisual(object);
+    attachLeafVisual(object);
+  }
 }
 
 function createCan(x: number, z: number) {
@@ -624,6 +682,28 @@ function buildBladeGrass(group: THREE.Group) {
   }
 }
 
+// GLB 프로토타입을 clone(true)하면 geometry/material은 원본과 공유된다.
+// 인스턴스를 버릴 때 이걸 dispose하면 프로토타입과 다른 인스턴스까지 깨지므로,
+// 프로토타입이 소유한 리소스는 여기 등록해두고 dispose 대상에서 제외한다.
+const sharedResourceIds = new Set<string>();
+function registerSharedResources(root: THREE.Object3D) {
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    sharedResourceIds.add(child.geometry.uuid);
+    (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => sharedResourceIds.add(m.uuid));
+  });
+}
+// 그룹의 자식을 비우면서, 그 그룹만 쓰던(=공유가 아닌) 리소스만 해제한다.
+function clearVisual(group: THREE.Object3D) {
+  group.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    if (!sharedResourceIds.has(child.geometry.uuid)) child.geometry.dispose();
+    (Array.isArray(child.material) ? child.material : [child.material])
+      .forEach((m) => { if (!sharedResourceIds.has(m.uuid)) m.dispose(); });
+  });
+  group.clear();
+}
+
 function attachGrassVisual(group: THREE.Group) {
   if (fernPrototypes.length === 0) { buildBladeGrass(group); return; }
   const fern = fernPrototypes[Math.floor(Math.random() * fernPrototypes.length)].clone(true);
@@ -643,12 +723,7 @@ function upgradeGrassVisuals() {
   if (fernPrototypes.length === 0) return;
   for (const object of cleanables) {
     if (object.userData.kind !== 'grass' || object.userData.cleaned) continue;
-    object.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
-      child.geometry.dispose();
-      (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => m.dispose());
-    });
-    object.clear();
+    clearVisual(object);
     attachGrassVisual(object);
   }
 }
@@ -1403,19 +1478,22 @@ async function prepareGameAssets() {
       const source = await loadModelScene(path);
       await renderer.compileAsync(source, camera);
       // 원본 3종의 크기·중심이 제각각이라 밑동이 바닥(y=0)에 오고 높이가 같아지도록 맞춘다.
-      const prototype = source.clone(true);
-      const bounds = new THREE.Box3().setFromObject(prototype);
+      // GLB 루트의 자체 변환을 덮어쓰지 않도록 래퍼 두 겹(정렬용/스케일용)으로 감싼다.
+      const inner = source.clone(true);
+      const bounds = new THREE.Box3().setFromObject(inner);
       const size = bounds.getSize(new THREE.Vector3());
+      const center = bounds.getCenter(new THREE.Vector3());
       const scale = FERN_HEIGHT / Math.max(size.y, 0.001);
+      const offset = new THREE.Group();
+      offset.add(inner);
+      offset.position.set(-center.x, -bounds.min.y, -center.z);
+      const prototype = new THREE.Group();
+      prototype.add(offset);
       prototype.scale.setScalar(scale);
-      prototype.position.set(
-        -(bounds.min.x + size.x / 2) * scale,
-        -bounds.min.y * scale,
-        -(bounds.min.z + size.z / 2) * scale,
-      );
       // 그림자는 끈다. 지역당 50개 × 약 6천 정점이라 켜면 섀도우 패스에서 같은 양을 한 번 더
       // 그리게 되는데, 발치의 작은 식물이라 얻는 게 거의 없다(이전 평면 잔디도 꺼져 있었다).
       prototype.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = false; });
+      registerSharedResources(prototype);
       fernPrototypes.push(prototype);
     }),
   ];
@@ -2798,6 +2876,9 @@ function startAssetLoadWhenReady() {
   });
 }
 startAssetLoadWhenReady();
+// 낙엽 3D 모델은 로딩 화면 진행과 무관하게 따로 받는다. 없어도 평면 낙엽으로 플레이가 되므로
+// 로딩을 막지 않고, 준비되는 대로 이미 놓인 낙엽의 겉모습만 갈아끼운다.
+loadLeafModelInBackground();
 // 기기·브라우저마다 발화하는 이벤트가 달라 셋 다 걸어둔다(중복 호출은 플래그로 무시).
 matchMedia('(orientation: portrait)').addEventListener('change', startAssetLoadWhenReady);
 window.addEventListener('orientationchange', startAssetLoadWhenReady);
