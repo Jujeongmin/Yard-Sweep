@@ -608,14 +608,48 @@ function createChest(kind: 'goldChest' | 'gemChest', x: number, z: number) {
   group.add(lock);
 }
 
-function createGrass(x: number, z: number) {
-  const group = cleanableGroup('grass', x, z);
+// 잔디는 고사리 GLB 3종을 무작위로 쓴다. populateRegion이 동기로 50개를 만들기 때문에
+// 로드된 씬을 여기에 따로 보관해 clone만 한다(로드 전이면 아래 평면 잔디로 폴백).
+const FERN_PATHS = ['/assets/Fern-0.glb', '/assets/Fern-1.glb', '/assets/Fern-2.glb'];
+const FERN_HEIGHT = 0.85; // 월드 높이로 정규화 — 원본 3종의 크기가 제각각이라 맞춰준다
+const fernPrototypes: THREE.Group[] = [];
+
+function buildBladeGrass(group: THREE.Group) {
   const material = new THREE.MeshStandardMaterial({ color: 0x3f9c35, side: THREE.DoubleSide });
   for (let i = 0; i < 5; i++) {
     const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.65), material);
     blade.position.set((i - 2) * 0.1, 0.3, (i % 2) * 0.08);
     blade.rotation.y = i * 0.8;
     group.add(blade);
+  }
+}
+
+function attachGrassVisual(group: THREE.Group) {
+  if (fernPrototypes.length === 0) { buildBladeGrass(group); return; }
+  const fern = fernPrototypes[Math.floor(Math.random() * fernPrototypes.length)].clone(true);
+  // 같은 모델이 반복돼도 심어놓은 티가 덜 나도록 방향·크기를 조금씩 흔든다.
+  fern.rotation.y = Math.random() * Math.PI * 2;
+  fern.scale.multiplyScalar(0.85 + Math.random() * 0.3);
+  group.add(fern);
+}
+
+function createGrass(x: number, z: number) {
+  attachGrassVisual(cleanableGroup('grass', x, z));
+}
+
+// enterRegion()이 에셋 프리로드보다 먼저 돌기 때문에, 첫 진입 시 잔디는 평면 폴백으로 생성된다.
+// 고사리 로드가 끝나면 이미 놓인 잔디의 겉모습만 갈아끼운다(그룹은 유지 — 청소 진행도·위치 보존).
+function upgradeGrassVisuals() {
+  if (fernPrototypes.length === 0) return;
+  for (const object of cleanables) {
+    if (object.userData.kind !== 'grass' || object.userData.cleaned) continue;
+    object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return;
+      child.geometry.dispose();
+      (Array.isArray(child.material) ? child.material : [child.material]).forEach((m) => m.dispose());
+    });
+    object.clear();
+    attachGrassVisual(object);
   }
 }
 
@@ -1079,6 +1113,8 @@ function playerNearChest() {
 }
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
+// TODO: 테스트용 전체 해금. 배포 전 반드시 제거할 것.
+unlockedRegion = 3;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
@@ -1363,6 +1399,25 @@ async function prepareGameAssets() {
     ...allAudio.map(preloadAudio),
     // 현재 지역 BGM 1곡만. 나머지 2곡은 해당 지역 진입 시 playRegionBgm()이 받는다.
     preloadAudio(bgmTracks[currentRegionId - 1]),
+    ...FERN_PATHS.map(async (path) => {
+      const source = await loadModelScene(path);
+      await renderer.compileAsync(source, camera);
+      // 원본 3종의 크기·중심이 제각각이라 밑동이 바닥(y=0)에 오고 높이가 같아지도록 맞춘다.
+      const prototype = source.clone(true);
+      const bounds = new THREE.Box3().setFromObject(prototype);
+      const size = bounds.getSize(new THREE.Vector3());
+      const scale = FERN_HEIGHT / Math.max(size.y, 0.001);
+      prototype.scale.setScalar(scale);
+      prototype.position.set(
+        -(bounds.min.x + size.x / 2) * scale,
+        -bounds.min.y * scale,
+        -(bounds.min.z + size.z / 2) * scale,
+      );
+      // 그림자는 끈다. 지역당 50개 × 약 6천 정점이라 켜면 섀도우 패스에서 같은 양을 한 번 더
+      // 그리게 되는데, 발치의 작은 식물이라 얻는 게 거의 없다(이전 평면 잔디도 꺼져 있었다).
+      prototype.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = false; });
+      fernPrototypes.push(prototype);
+    }),
   ];
   let completed = 0;
   loadingProgress.style.width = '2%';
@@ -1371,6 +1426,7 @@ async function prepareGameAssets() {
     completed += 1;
     loadingProgress.style.width = `${Math.max(2, Math.round((completed / tasks.length) * 100))}%`;
   }));
+  upgradeGrassVisuals();
   renderer.compile(scene, camera);
   renderer.render(scene, camera);
   loadingProgress.style.width = '100%';
