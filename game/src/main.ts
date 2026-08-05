@@ -1164,8 +1164,6 @@ function playerNearChest() {
 }
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
-// TODO: 테스트용 전체 해금. 배포 전 반드시 제거할 것.
-unlockedRegion = 3;
 const regionProgress = saveData.regionProgress;
 const stats = saveData.stats;
 const missionProgress = saveData.missionProgress;
