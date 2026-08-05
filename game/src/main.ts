@@ -252,8 +252,6 @@ function applyGraphicsQuality(quality: GraphicsQuality) {
   sun.shadow.map?.dispose();
   sun.shadow.map = null;
   renderer.setPixelRatio(Math.min(devicePixelRatio, preset.pixelRatio));
-  // 낙엽은 '높음'에서만 3D 모델을 쓰므로 품질을 바꾸면 이미 놓인 낙엽도 갈아끼운다.
-  refreshLeafVisuals();
 }
 
 const cleanables: Cleanable[] = [];
@@ -517,28 +515,49 @@ function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
 // 낙엽 3D 모델은 포토그래메트리 스캔이라 압축 한계까지 줄여도 약 2.5만 정점이다.
 // 지역당 100개면 250만 정점이라 약한 기기에서 감당이 안 되므로, 그래픽 품질이 '높음'일 때만 쓰고
 // 낮음/보통에서는 기존 평면 낙엽(정점 10개 남짓)을 그대로 쓴다.
-const LEAF_MODEL_PATH = '/assets/Leaf.glb';
-const LEAF_WIDTH = 0.42; // 평면 낙엽과 비슷한 크기로 정규화
-let leafPrototype: THREE.Group | null = null;
-function useLeafModel() {
-  return settings.graphicsQuality === 'high' && leafPrototype !== null;
+// 낙엽은 평면 1장(정점 10개대)을 유지하되, 오크 잎 GLB에서 뽑아낸 잎 표면 텍스처를 입힌다.
+// 3D 스캔 메시를 그대로 쓰면 개당 2.5만 정점이라 지역당 100개를 감당할 수 없다.
+// 실루엣은 아래 Shape이 만들고, 텍스처는 잎맥·색 얼룩만 담당한다.
+const LEAF_TEXTURE_PATH = '/assets/leaf-texture.png';
+const leafTexture = new THREE.TextureLoader().load(LEAF_TEXTURE_PATH);
+leafTexture.colorSpace = THREE.SRGBColorSpace;
+
+// 잎 하나짜리 오크형 실루엣(끝이 뾰족한 타원 + 짧은 잎자루). 텍스처의 주맥이 가로로 놓여 있어
+// 실루엣도 같은 방향(x축이 길게)으로 그린다.
+function createLeafShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.5, 0);            // 잎자루 끝
+  shape.quadraticCurveTo(-0.2, 0.22, 0.16, 0.2);
+  shape.quadraticCurveTo(0.38, 0.16, 0.5, 0);   // 잎 끝(뾰족)
+  shape.quadraticCurveTo(0.38, -0.16, 0.16, -0.2);
+  shape.quadraticCurveTo(-0.2, -0.22, -0.5, 0);
+  shape.closePath();
+  return shape;
 }
 
+// ShapeGeometry의 UV는 도형 좌표를 그대로 쓰므로 텍스처가 잘린다. 바운딩박스 기준 0~1로 다시 매핑.
+function remapUv(geometry: THREE.BufferGeometry) {
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+  const sx = box.max.x - box.min.x;
+  const sy = box.max.y - box.min.y;
+  const pos = geometry.attributes.position;
+  const uv = geometry.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    uv.setXY(i, (pos.getX(i) - box.min.x) / sx, (pos.getY(i) - box.min.y) / sy);
+  }
+  uv.needsUpdate = true;
+}
+
+const leafGeometry = new THREE.ShapeGeometry(createLeafShape());
+remapUv(leafGeometry);
+
 function buildFlatLeaf(group: THREE.Group) {
-  // Five-lobed maple leaf silhouette (top, two upper side, two lower side lobes) with a short stem.
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0.5);
-  shape.lineTo(0.1, 0.3); shape.lineTo(0.4, 0.24);
-  shape.lineTo(0.18, 0.08); shape.lineTo(0.34, -0.15);
-  shape.lineTo(0.1, -0.18); shape.lineTo(0.09, -0.36);
-  shape.lineTo(0.03, -0.5);
-  shape.lineTo(-0.09, -0.36); shape.lineTo(-0.1, -0.18);
-  shape.lineTo(-0.34, -0.15); shape.lineTo(-0.18, 0.08);
-  shape.lineTo(-0.4, 0.24); shape.lineTo(-0.1, 0.3);
-  shape.closePath();
   const mesh = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape),
+    leafGeometry,
     new THREE.MeshStandardMaterial({
+      map: leafTexture,
+      // 텍스처가 이미 잎 색이라 색조는 살짝만 섞어 개체 간 차이를 준다.
       color: leafColors[Math.floor(Math.random() * leafColors.length)],
       side: THREE.DoubleSide,
       roughness: 0.9,
@@ -551,51 +570,8 @@ function buildFlatLeaf(group: THREE.Group) {
   group.add(mesh);
 }
 
-// 낙엽 모델은 1.1MB에 정점도 많아 로딩 화면을 붙잡을 이유가 없다(없어도 평면 낙엽으로 플레이 가능).
-// 로딩과 무관하게 백그라운드로 받아서, 준비되면 그때 겉모습만 갈아끼운다.
-function loadLeafModelInBackground() {
-  void loadModelScene(LEAF_MODEL_PATH).then((source) => {
-    // GLB 루트가 자체 변환(Sketchfab 모델은 회전·스케일을 갖고 있다)을 가지므로 덮어쓰지 않고
-    // 래퍼로 감싸서 정규화한다. 그래야 인스턴스에서 크기를 흔들어도 밑동이 지면에 붙어 있다.
-    const inner = source.clone(true);
-    const bounds = new THREE.Box3().setFromObject(inner);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    // 눕혀서 떨어진 잎이라 가로 폭 기준으로 정규화하고, 바닥에 닿게 내린다.
-    const scale = LEAF_WIDTH / Math.max(size.x, size.z, 0.001);
-    const offset = new THREE.Group();
-    offset.add(inner);
-    offset.position.set(-center.x, -bounds.min.y, -center.z);
-    const prototype = new THREE.Group();
-    prototype.add(offset);
-    prototype.scale.setScalar(scale);
-    prototype.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = false; });
-    registerSharedResources(prototype);
-    leafPrototype = prototype;
-    refreshLeafVisuals();
-  }).catch(() => { /* 실패해도 평면 낙엽으로 계속 플레이 가능 */ });
-}
-
-function attachLeafVisual(group: THREE.Group) {
-  if (!useLeafModel()) { buildFlatLeaf(group); return; }
-  const leaf = leafPrototype!.clone(true);
-  leaf.rotation.y = Math.random() * Math.PI * 2;
-  leaf.scale.multiplyScalar(0.8 + Math.random() * 0.4);
-  group.add(leaf);
-}
-
 function createLeaf(x: number, z: number) {
-  attachLeafVisual(cleanableGroup('leaf', x, z));
-}
-
-// 낙엽 모델 로드 완료 시점과 그래픽 품질 변경 시점에, 아직 청소되지 않은 낙엽의 겉모습만 갈아끼운다.
-// 그룹은 유지하므로 청소 진행도·위치는 보존된다.
-function refreshLeafVisuals() {
-  for (const object of cleanables) {
-    if (object.userData.kind !== 'leaf' || object.userData.cleaned) continue;
-    clearVisual(object);
-    attachLeafVisual(object);
-  }
+  buildFlatLeaf(cleanableGroup('leaf', x, z));
 }
 
 function createCan(x: number, z: number) {
@@ -2876,10 +2852,8 @@ function startAssetLoadWhenReady() {
   });
 }
 startAssetLoadWhenReady();
-// 낙엽 3D 모델은 로딩 화면 진행과 무관하게 따로 받는다. 없어도 평면 낙엽으로 플레이가 되므로
-// 로딩을 막지 않고, 준비되는 대로 이미 놓인 낙엽의 겉모습만 갈아끼운다.
-loadLeafModelInBackground();
 // 기기·브라우저마다 발화하는 이벤트가 달라 셋 다 걸어둔다(중복 호출은 플래그로 무시).
 matchMedia('(orientation: portrait)').addEventListener('change', startAssetLoadWhenReady);
 window.addEventListener('orientationchange', startAssetLoadWhenReady);
 window.addEventListener('resize', startAssetLoadWhenReady);
+
