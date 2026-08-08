@@ -1182,7 +1182,8 @@ function updateTutorialUI() {
     return;
   }
   tutorialEl.classList.remove('hidden');
-  tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}`);
+  // 터치 기기에서는 WASD·좌클릭·Tab이 존재하지 않으므로 조이스틱·버튼 기준 문구를 쓴다.
+  tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}${usesMobileControls() ? 'Mobile' : ''}`);
   tutorialProgressEl.textContent = t('tutorial.progress', { current: tutorialStep, total: 3 });
 }
 

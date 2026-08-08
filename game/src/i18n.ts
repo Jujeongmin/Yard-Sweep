@@ -190,6 +190,11 @@ const ko: Dict = {
   'tutorial.step1': 'WASD 키로 이동해보세요',
   'tutorial.step2': '좌클릭으로 낙엽을 청소하세요',
   'tutorial.step3': 'Tab 키를 눌러 상점을 열어보세요',
+  // 터치 기기에는 키보드도 마우스도 없다. 세 단계 모두 화면에 실제로 보이는
+  // 조작(조이스틱·청소 버튼·상점 버튼)으로 바꿔 안내한다.
+  'tutorial.step1Mobile': '왼쪽 조이스틱으로 이동해보세요',
+  'tutorial.step2Mobile': '청소 버튼을 길게 눌러 낙엽을 청소하세요',
+  'tutorial.step3Mobile': '상점 버튼을 눌러 상점을 열어보세요',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': '튜토리얼 완료!',
 
@@ -404,6 +409,9 @@ const en: Dict = {
   'tutorial.step1': 'Move around using W A S D keys',
   'tutorial.step2': 'Click to clean leaves',
   'tutorial.step3': 'Press Tab to open the shop',
+  'tutorial.step1Mobile': 'Move around with the left joystick',
+  'tutorial.step2Mobile': 'Hold the clean button to clean leaves',
+  'tutorial.step3Mobile': 'Tap the shop button to open the shop',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': 'Tutorial complete!',
 
