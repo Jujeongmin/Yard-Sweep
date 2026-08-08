@@ -45,7 +45,6 @@ const ko: Dict = {
   'label.cleaningItem': '{label} 청소 중',
 
   'aria.shop': '상점',
-  'aria.fullscreen': '전체화면',
   'aria.settings': '설정',
   'aria.shopClose': '상점 닫기',
   'aria.settingsClose': '설정 닫기',
@@ -174,12 +173,10 @@ const ko: Dict = {
 
   'rotate.title': '기기를 가로로 돌려주세요',
   'rotate.body': 'Yard Sweep은 가로 화면에서 가장 편하게 플레이할 수 있어요.',
-  'rotate.fullscreenStart': '전체화면으로 시작',
 
   'unit.coinGain': '+{n} 코인',
   'unit.gemGain': '+{n} 보석',
 
-  'notice.rotateDevice': '기기를 직접 가로로 돌려주세요',
   'notice.missionClaimed': '{label} 보상 수령!',
   'notice.achievementUnlocked': '{label} 달성!',
   'notice.toolLocked': '{name} 장비가 잠겨 있습니다',
@@ -262,7 +259,6 @@ const en: Dict = {
   'label.cleaningItem': 'Cleaning {label}',
 
   'aria.shop': 'Shop',
-  'aria.fullscreen': 'Fullscreen',
   'aria.settings': 'Settings',
   'aria.shopClose': 'Close shop',
   'aria.settingsClose': 'Close settings',
@@ -391,12 +387,10 @@ const en: Dict = {
 
   'rotate.title': 'Please rotate your device',
   'rotate.body': 'Yard Sweep plays best in landscape mode.',
-  'rotate.fullscreenStart': 'Start in fullscreen',
 
   'unit.coinGain': '+{n} coins',
   'unit.gemGain': '+{n} gems',
 
-  'notice.rotateDevice': 'Please rotate your device to landscape',
   'notice.missionClaimed': '{label} reward claimed!',
   'notice.achievementUnlocked': '{label} achieved!',
   'notice.toolLocked': '{name} is locked',

@@ -1534,15 +1534,6 @@ function isTouchDevice() {
   return matchMedia('(pointer: coarse)').matches;
 }
 
-// 세로로 든 터치 기기에서는 CSS가 #app을 90도 회전시켜 가로로 그린다(style.css의 동일 미디어쿼리).
-// 포인터 이벤트의 clientX/clientY는 회전 전 화면 좌표로 들어오므로 조작 축이 90도 틀어진다.
-// 회전 변환이 로컬 좌표 (x,y)를 화면 (H-y, x)로 보내므로(H = 화면 폭) 역변환은 x=Y, y=H-X이고,
-// 델타만 놓고 보면 (dx, dy) = (dY, -dX)가 된다. 조이스틱 방향과 시점 드래그가 이걸 거친다.
-const forcedLandscapeQuery = matchMedia('(pointer: coarse) and (orientation: portrait)');
-function toLocalDelta(dx: number, dy: number) {
-  return forcedLandscapeQuery.matches ? { dx: dy, dy: -dx } : { dx, dy };
-}
-
 // F11이나 브라우저 자체 전체화면 버튼은 Fullscreen API를 거치지 않아
 // document.fullscreenElement가 설정되지 않는다. 뷰포트가 화면 전체를
 // 채우는지로 이런 "수동" 전체화면도 함께 감지한다.
@@ -1559,30 +1550,11 @@ function refreshFullscreenBanner() {
   }
 }
 
-// 대부분의 모바일 브라우저는 "풀스크린이 이미 걸린 상태"에서만 orientation.lock()을 허용한다.
-// requestFullscreen()은 비동기라 그 직후에 부르면 아직 풀스크린이 아니라 거의 항상 거부된다.
-// 그래서 실제 잠금은 fullscreenchange에서(=풀스크린 확정 후) 시도한다. Verse8 셸의 자체
-// 풀스크린 버튼으로 들어간 경우도 같은 이벤트로 잡히므로 게임이 처음부터 가로로 뜬다.
-// 미지원 브라우저(iOS Safari 등)에서는 조용히 실패하고 CSS의 #rotate-screen 안내가 대신 뜬다.
-function tryLockLandscape() {
-  try {
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
-    orientation.lock?.('landscape')?.catch(() => { /* 미지원/거부 — 회전 안내로 대체 */ });
-  } catch { /* ignore */ }
-}
-
-function enterFullscreen() {
-  if (!document.fullscreenElement) {
-    // requestFullscreen()은 Promise를 반환한다. Verse8 셸 iframe처럼 allow="fullscreen"이
-    // 없는 환경에서는 거부되는데, 그 거부는 try/catch로 잡히지 않고 조용히 사라진다(버튼이
-    // 아무 반응 없어 보이던 원인). 이제 전체화면은 있으면 좋은 옵션일 뿐이고, 실패해도
-    // CSS 강제 가로 회전이 화면을 책임지므로 거부를 명시적으로 삼킨다.
-    try {
-      document.documentElement.requestFullscreen()?.catch(() => { /* 미허용 환경 — 회전 CSS로 대체 */ });
-    } catch { /* ignore */ }
-  }
-  tryLockLandscape(); // 이미 풀스크린이던 경우를 위한 즉시 시도(아니면 fullscreenchange에서 재시도)
-}
+// 전체화면 진입 버튼은 없앴다. Verse8 셸 iframe에는 allow="fullscreen"이 없어
+// requestFullscreen()이 항상 거부되고(거부는 Promise로 와서 try/catch에도 안 잡힌다),
+// 전제 조건이 풀스크린인 screen.orientation.lock()도 함께 불가능하다. 눌러도 아무 일도
+// 일어나지 않는 버튼이라 제거하고, 가로 전환은 사용자가 기기를 직접 돌리는 것으로 통일한다.
+// (#fullscreen-prompt 배너는 F11을 쓸 수 있는 데스크톱 전용이라 그대로 둔다.)
 
 function showNotice(message: string) {
   notice.textContent = message;
@@ -2040,24 +2012,15 @@ function startGame() {
 
 start.addEventListener('click', () => {
   if (!assetsReady) return;
-  // 전체화면을 시도하되 거부되더라도(iframe 등) 게임은 그대로 시작한다.
-  // 예전에는 여기서 return해버려서, 전체화면이 막힌 환경에서는 아예 시작되지 않았다.
-  if (isTouchDevice() && !document.fullscreenElement) enterFullscreen();
   startGame();
 });
 
 document.addEventListener('fullscreenchange', () => {
+  // 데스크톱에서 F11 등으로 전체화면을 오갈 때 배너만 갱신한다. 모바일에서는 전체화면
+  // 자체가 불가능하므로 여기서 게임을 시작하거나 멈추지 않는다 — 예전에는 전체화면을
+  // 벗어나면 터치 기기에서 게임을 정지시켰는데, 전체화면에 못 들어가는 환경에서는
+  // 그 분기가 게임을 시작조차 못 하게 만드는 원인이 됐다.
   refreshFullscreenBanner();
-  if (document.fullscreenElement) {
-    // 풀스크린이 확정된 지금이 orientation.lock()이 실제로 먹히는 시점이다.
-    tryLockLandscape();
-    if (isTouchDevice() && assetsReady && !gameStarted) startGame();
-  }
-  if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
-    gameStarted = false;
-    stopCleaning();
-    bgmTracks.forEach((audio) => audio.pause());
-  }
   // The fullscreen transition interrupts any in-progress touch with pointercancel/touchcancel
   // (not pointerup/touchend), so reset movement/look input directly here as a safety net.
   resetJoystick();
@@ -2461,10 +2424,6 @@ function toggleSettings(force?: boolean) {
   }
 }
 document.querySelector('#shop-button')!.addEventListener('click', () => toggleShop());
-document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
-document.querySelector('#rotate-fullscreen')!.addEventListener('click', () => {
-  enterFullscreen();
-});
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
 document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
 document.querySelector('#settings-close')!.addEventListener('click', () => toggleSettings(false));
@@ -2648,15 +2607,8 @@ joystick?.addEventListener('pointerdown', (event) => {
 joystick?.addEventListener('pointermove', (event) => {
   if (event.pointerId !== joystickPointer) return;
   const bounds = joystick.getBoundingClientRect();
-  // 강제 가로 회전 시 bounds는 회전된 화면 기준 축정렬 사각형이라 중심점은 그대로 쓸 수 있지만
-  // 중심에서의 변위는 축이 90도 틀어져 있다. 반지름은 원형 조이스틱이라 어느 축이든 같다.
-  const radius = Math.max(1, joystick.offsetWidth * 0.35);
-  const { dx, dy } = toLocalDelta(
-    event.clientX - (bounds.left + bounds.width / 2),
-    event.clientY - (bounds.top + bounds.height / 2),
-  );
-  joystickX = THREE.MathUtils.clamp(dx / radius, -1, 1);
-  joystickY = THREE.MathUtils.clamp(dy / radius, -1, 1);
+  joystickX = THREE.MathUtils.clamp((event.clientX - (bounds.left + bounds.width / 2)) / (bounds.width * 0.35), -1, 1);
+  joystickY = THREE.MathUtils.clamp((event.clientY - (bounds.top + bounds.height / 2)) / (bounds.height * 0.35), -1, 1);
   if (joystickKnob) joystickKnob.style.transform = `translate(${joystickX * 26}px,${joystickY * 26}px)`;
 });
 function resetJoystick() {
@@ -2699,10 +2651,8 @@ canvas.addEventListener('touchmove', (event) => {
   for (let i = 0; i < event.changedTouches.length; i++) {
     const touch = event.changedTouches[i];
     if (touch.identifier === canvasTouchId) {
-      // 강제 가로 회전 시 화면 델타의 축이 90도 틀어져 있으므로 되돌린 뒤 시점에 적용한다.
-      const { dx, dy } = toLocalDelta(touch.clientX - lastTouchX, touch.clientY - lastTouchY);
-      yaw -= dx * 0.006 * settings.sensitivity;
-      pitch -= dy * 0.004 * settings.sensitivity;
+      yaw -= (touch.clientX - lastTouchX) * 0.006 * settings.sensitivity;
+      pitch -= (touch.clientY - lastTouchY) * 0.004 * settings.sensitivity;
       pitch = THREE.MathUtils.clamp(pitch, -1.05, 0.75);
       lastTouchX = touch.clientX;
       lastTouchY = touch.clientY;
@@ -2725,11 +2675,9 @@ function resize() {
   // 모바일 주소창·전체화면·회전 중에는 innerWidth/innerHeight와 실제 CSS 캔버스 크기가
   // 서로 다른 프레임에 갱신될 수 있다. 렌더 버퍼와 카메라가 같은 실측값을 사용해야
   // 화면이 가로 또는 세로로 눌리는 현상이 생기지 않는다.
-  // getBoundingClientRect()는 transform이 적용된 뒤의 축정렬 사각형이라, 강제 가로 회전
-  // 상태에서는 가로·세로가 뒤바뀐 값을 준다. clientWidth/clientHeight는 transform 이전의
-  // 레이아웃 크기라 회전 여부와 무관하게 캔버스의 실제 그리기 크기를 준다.
-  const width = Math.max(1, canvas.clientWidth);
-  const height = Math.max(1, canvas.clientHeight);
+  const bounds = canvas.getBoundingClientRect();
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
@@ -2885,20 +2833,24 @@ function applyLocale() {
 
 animate();
 applyLocale();
-// Verse8 셸이 이미 풀스크린인 상태로 게임을 띄우는 경우 fullscreenchange가 발생하지 않으므로
-// 여기서 한 번 잠가 준다. 그래야 세로로 든 기기가 로드 직후 바로 가로로 돌아간다.
-if (document.fullscreenElement) tryLockLandscape();
-// 세로로 들고 있어도 CSS가 화면을 90도 돌려 가로로 그리므로, 방향을 이유로 로딩을
-// 미루지 않는다. 예전에는 세로에서 여기서 그냥 return해 에셋 다운로드 자체가 시작되지
-// 않았고, 전체화면이 막힌 환경에서는 회전 안내 화면에서 영영 진행되지 않았다.
+// 세로 모드에선 회전 안내만 띄우고 에셋 다운로드를 미룬다.
+// 가로로 돌린 뒤에 받아야 로딩 진행률이 실제로 보이고, 세로로 둔 채 방치해서
+// 데이터만 쓰는 상황도 막을 수 있다. (CSS도 세로에선 #loading-screen을 숨긴다)
 let assetLoadStarted = false;
 function startAssetLoadWhenReady() {
   if (assetLoadStarted) return;
+  if (matchMedia('(pointer: coarse) and (orientation: portrait)').matches) return;
   assetLoadStarted = true;
   void prepareGameAssets().then(() => {
+    // 카메라·렌더 버퍼는 실제로 가로가 된 지금의 뷰포트 기준으로 다시 계산한다.
+    // 초기 resize()는 아직 세로일 때 돌아 세로 비율로 잡혀 있다. 회전 직후에는
+    // 뷰포트 크기가 몇 프레임에 걸쳐 정착하므로 resizeSoon()으로 지연 재확인까지 한다.
+    resizeSoon();
     if (isTouchDevice()) startGame();
   });
 }
 startAssetLoadWhenReady();
-// 강제 가로 회전이 켜지고 꺼질 때 레이아웃 크기가 통째로 바뀌므로 렌더러도 다시 맞춘다.
-forcedLandscapeQuery.addEventListener('change', resizeSoon);
+// 기기·브라우저마다 발화하는 이벤트가 달라 셋 다 걸어둔다(중복 호출은 플래그로 무시).
+matchMedia('(orientation: portrait)').addEventListener('change', startAssetLoadWhenReady);
+window.addEventListener('orientationchange', startAssetLoadWhenReady);
+window.addEventListener('resize', startAssetLoadWhenReady);
