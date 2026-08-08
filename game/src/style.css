@@ -547,49 +547,40 @@ button { font: inherit; }
   .slot small { font-size: var(--fs-xs); }
 }
 
-/* ── Portrait mobile: force landscape fullscreen ── */
-/* 태블릿 세로(768px 이상)도 포함되도록 너비 조건 제거 */
+/* ── Portrait mobile: 화면 자체를 90도 돌려 가로로 그린다 ── */
+/* Verse8 셸 iframe 안에서는 requestFullscreen()도 screen.orientation.lock()도 거부되므로
+   (iframe에 allow="fullscreen"이 없다) 기기를 실제로 회전시킬 수단이 없다. 그래서 세로일
+   때는 기기를 돌려달라고 막는 대신 #app을 90도 회전시켜 가로 화면으로 렌더한다.
+   폭·높이를 서로 바꿔 화면을 정확히 채우고, transform-origin을 좌상단에 두고 회전한 뒤
+   translateY(-100%)로 제자리에 밀어 넣는다.
+   #app에 transform이 걸리면 그 안의 position:fixed 자손은 #app을 컨테이닝 블록으로 삼으므로
+   HUD·조이스틱·상점·오버레이가 전부 함께 회전한다.
+   단, 포인터 이벤트 좌표는 여전히 화면 기준으로 들어온다 — main.ts의 toLocalDelta()가 축을 되돌린다. */
 @media (pointer: coarse) and (orientation: portrait) {
-  /* 로딩 화면(z-index 1000)이 회전 안내(z-index 100)를 덮어버리므로 세로에선 숨긴다.
-     에셋 다운로드도 가로로 돌린 뒤에 시작한다(main.ts startAssetLoadWhenReady). */
-  #loading-screen { display: none; }
-  .hud { display: none; }
-  .inventory { display: none; }
-  .controls { display: none; }
-  .cleaning-radius { display: none; }
-  #clean-meter { display: none; }
-  .tutorial { display: none; }
-  .start-card { position: relative; transform: none; left: auto; top: auto; margin: 0; }
-  #mobile-controls { display: none; }
-  #rotate-screen, #rotate-screen.show { display: flex; }
-  #rotate-screen {
-    flex-direction: column; align-items: center; justify-content: center;
-    text-align: center; padding: clamp(20px,4vw,28px);
-    color: white;
-    background: radial-gradient(circle at 50% 30%, #41778d, #102b38 70%);
+  #app {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100dvh;
+    height: 100dvw;
+    transform-origin: top left;
+    transform: rotate(90deg) translateY(-100%);
   }
-  .rotate-phone {
-    position: relative; font-size: clamp(70px,12vw,100px); line-height: 1;
-    transform: rotate(90deg); animation: rotateHint 1.8s ease-in-out infinite;
-  }
-  .rotate-phone span {
-    position: absolute; right: clamp(-18px,-3vw,-23px);
-    top: clamp(18px,3vw,25px); font-size: clamp(24px,4.5vw,34px);
-  }
-  .rotate-phone+strong { margin-top: clamp(14px,2.5vw,18px); font: clamp(22px,4vw,28px) Jua,sans-serif; }
-  .rotate-phone~p { max-width: min(310px,85vw); margin: clamp(6px,1vw,8px) 0 clamp(18px,3vw,22px); color: #c9e2ea; font-size: var(--fs-sm); }
-  #rotate-fullscreen {
-    padding: clamp(10px,1.5vw,12px) clamp(16px,2.5vw,20px);
-    border: 3px solid white; border-radius: clamp(18px,3vw,22px);
-    color: white; background: #3ca24a; font-size: var(--fs-md); cursor: pointer;
+  /* 회전하면 안전영역(노치·홈 인디케이터)도 같이 어긋난다. 회전 후 기준으로 다시 매핑:
+     위=기기 오른쪽, 오른쪽=기기 아래, 아래=기기 왼쪽, 왼쪽=기기 위. */
+  :root {
+    --safe-t: env(safe-area-inset-right, 0px);
+    --safe-r: env(safe-area-inset-bottom, 0px);
+    --safe-b: env(safe-area-inset-left, 0px);
+    --safe-l: env(safe-area-inset-top, 0px);
   }
 }
-@keyframes rotateHint { 0%,100% { transform: rotate(90deg) scale(.95); } 50% { transform: rotate(0) scale(1.05); } }
 
-/* ── Landscape touch devices (phone + tablet): compact controls ── */
-/* 너비 조건을 쓰면 태블릿 가로(1024px 등)에서 조이스틱·청소버튼 위치 CSS가
-   통째로 빠져 조작 불가가 된다. 터치 여부로만 판별한다. */
-@media (pointer: coarse) and (orientation: landscape) {
+/* ── Touch devices (phone + tablet): compact controls ── */
+/* 세로일 때도 위에서 90도 회전시켜 가로로 그리므로, 방향 조건 없이 '터치 기기'로만 판별한다.
+   너비 조건을 쓰면 태블릿(1024px 등)에서 조이스틱·청소버튼 위치 CSS가 통째로 빠져
+   조작 불가가 된다. */
+@media (pointer: coarse) {
   .hud {
     padding: calc(clamp(4px,0.8vw,6px) + var(--safe-t)) calc(clamp(6px,1vw,8px) + var(--safe-r))
              clamp(4px,0.8vw,6px) calc(clamp(6px,1vw,8px) + var(--safe-l));
