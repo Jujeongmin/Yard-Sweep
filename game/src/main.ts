@@ -1550,14 +1550,23 @@ function refreshFullscreenBanner() {
   }
 }
 
+// 대부분의 모바일 브라우저는 "풀스크린이 이미 걸린 상태"에서만 orientation.lock()을 허용한다.
+// requestFullscreen()은 비동기라 그 직후에 부르면 아직 풀스크린이 아니라 거의 항상 거부된다.
+// 그래서 실제 잠금은 fullscreenchange에서(=풀스크린 확정 후) 시도한다. Verse8 셸의 자체
+// 풀스크린 버튼으로 들어간 경우도 같은 이벤트로 잡히므로 게임이 처음부터 가로로 뜬다.
+// 미지원 브라우저(iOS Safari 등)에서는 조용히 실패하고 CSS의 #rotate-screen 안내가 대신 뜬다.
+function tryLockLandscape() {
+  try {
+    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
+    orientation.lock?.('landscape')?.catch(() => { /* 미지원/거부 — 회전 안내로 대체 */ });
+  } catch { /* ignore */ }
+}
+
 function enterFullscreen() {
   if (!document.fullscreenElement) {
     try { document.documentElement.requestFullscreen(); } catch { /* ignore */ }
   }
-  try {
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
-    orientation.lock?.('landscape')?.catch(() => {});
-  } catch {}
+  tryLockLandscape(); // 이미 풀스크린이던 경우를 위한 즉시 시도(아니면 fullscreenchange에서 재시도)
   setTimeout(() => {
     if (!document.fullscreenElement && isTouchDevice()) {
       showNotice(t('notice.rotateDevice'));
@@ -2031,6 +2040,8 @@ start.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => {
   refreshFullscreenBanner();
   if (document.fullscreenElement) {
+    // 풀스크린이 확정된 지금이 orientation.lock()이 실제로 먹히는 시점이다.
+    tryLockLandscape();
     if (isTouchDevice() && assetsReady && !gameStarted) startGame();
   }
   if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
@@ -2854,6 +2865,9 @@ function applyLocale() {
 
 animate();
 applyLocale();
+// Verse8 셸이 이미 풀스크린인 상태로 게임을 띄우는 경우 fullscreenchange가 발생하지 않으므로
+// 여기서 한 번 잠가 준다. 그래야 세로로 든 기기가 로드 직후 바로 가로로 돌아간다.
+if (document.fullscreenElement) tryLockLandscape();
 // 세로 모드에선 회전 안내만 띄우고 에셋 다운로드를 미룬다.
 // 가로로 돌린 뒤에 받아야 로딩 진행률이 실제로 보이고, 세로로 둔 채 방치해서
 // 데이터만 쓰는 상황도 막을 수 있다. (CSS도 세로에선 #loading-screen을 숨긴다)
