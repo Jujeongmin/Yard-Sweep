@@ -22,7 +22,7 @@ export async function showRewardAd(placementId: string, onResult: AdCallback) {
   adBusy = true;
 
   try {
-    const result = await Verse8Ads.showRewarded({ placementId, timeoutMs: 120_000 });
+    const result = await Verse8Ads.showRewarded({ placementId, timeoutMs: 300_000 });
 
     switch (result.status) {
       case 'rewarded':
