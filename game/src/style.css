@@ -179,7 +179,6 @@ button { font: inherit; }
 #settings { color:#eaf6ff; }
 #shop-button:hover, #settings:hover { transform: scale(1.12); filter: drop-shadow(0 3px 3px rgba(12,31,43,.9)); }
 #shop-button:active, #settings:active { transform: scale(.92); }
-#fullscreen-button { display:none; background:#3286bd; }
 .icon-button { display: flex; flex-direction: column; align-items: center; gap: clamp(2px,0.5vw,4px); }
 .hud-actions-start { margin-left: auto; }
 .button-key {
@@ -474,6 +473,52 @@ button { font: inherit; }
 .settings-toggle { display: flex; align-items: center; gap: var(--gap-sm); font-size: var(--fs-sm); cursor: pointer; }
 .mobile-only-setting { display: none; }
 
+/* ── First-run onboarding ── */
+/* 계정에 닉네임이 없을 때 로딩 직후 한 번 뜨는 첫 설정 화면.
+   z-index는 로딩 화면(1000)보다 낮게 둔다 — 로딩이 먼저 사라지며 자연스럽게 드러난다. */
+.onboarding {
+  position: fixed; z-index: 900; inset: 0;
+  display: grid; place-items: center;
+  padding: calc(clamp(16px,4vw,28px) + var(--safe-t)) calc(clamp(16px,4vw,28px) + var(--safe-r))
+           calc(clamp(16px,4vw,28px) + var(--safe-b)) calc(clamp(16px,4vw,28px) + var(--safe-l));
+  background: rgba(8,22,31,.72); backdrop-filter: blur(7px);
+}
+.onboarding.hidden { display: none; }
+.onboarding-card {
+  width: min(400px, 92vw); max-height: 88vh; overflow: auto;
+  padding: clamp(16px,3vw,24px);
+  border: clamp(3px,0.5vw,4px) solid #fff; border-radius: var(--radius-lg);
+  background: #eef3e5; color: #263b42; text-shadow: none;
+}
+.onboarding-card .mini-logo { color: #55934a; letter-spacing: 2px; }
+.onboarding-card strong { display: block; margin: clamp(2px,0.4vw,4px) 0 0; font: clamp(20px,3.5vw,27px) Jua,sans-serif; }
+.onboarding-lead { margin: clamp(4px,0.6vw,6px) 0 0; color: #74827d; font-size: var(--fs-sm); }
+.onboarding-card h3 { margin: clamp(10px,1.6vw,14px) 0 clamp(6px,1vw,8px); font-size: var(--fs-sm); }
+.onboarding-card .nickname-field { width: 100%; }
+.onboarding-row { display: flex; gap: var(--gap-sm); }
+.onboarding-lang {
+  flex: 1; padding: clamp(7px,1vw,9px); border: 0;
+  border-radius: var(--radius-sm); background: white;
+  color: #51645c; font-size: var(--fs-sm); cursor: pointer;
+}
+.onboarding-lang.selected { color: white; background: #395c55; }
+.onboarding-actions { margin-top: clamp(12px,2vw,16px); align-items: center; }
+#onboarding-start { background: #4da942; color: white; font-weight: 800; }
+.onboarding-skip {
+  flex: 0 0 auto; padding: clamp(7px,1vw,9px) clamp(10px,1.6vw,14px);
+  border: 0; border-radius: var(--radius-sm); background: transparent;
+  color: #74827d; font-size: var(--fs-sm); cursor: pointer; text-decoration: underline;
+}
+/* 폰 가로는 높이가 400px 안팎이라 기본 여백으로는 카드가 넘쳐 시작 버튼까지 스크롤해야 한다.
+   한 화면에 담기도록 여백과 제목 크기를 줄인다. */
+@media (max-height: 480px) {
+  .onboarding-card { max-height: 94vh; padding: clamp(10px,2vw,14px) clamp(14px,2.5vw,18px); }
+  .onboarding-card strong { font-size: clamp(17px,3vw,20px); }
+  .onboarding-lead { margin-top: 2px; font-size: var(--fs-xs); }
+  .onboarding-card h3 { margin: clamp(7px,1.2vw,10px) 0 clamp(4px,0.6vw,5px); }
+  .onboarding-actions { margin-top: clamp(8px,1.4vw,11px); }
+}
+
 /* ── Tutorial ── */
 .tutorial {
   position: fixed; z-index: 15; bottom: clamp(30px,5vw,40px); left: 50%; transform: translateX(-50%);
@@ -577,12 +622,7 @@ button { font: inherit; }
     top: clamp(18px,3vw,25px); font-size: clamp(24px,4.5vw,34px);
   }
   .rotate-phone+strong { margin-top: clamp(14px,2.5vw,18px); font: clamp(22px,4vw,28px) Jua,sans-serif; }
-  .rotate-phone~p { max-width: min(310px,85vw); margin: clamp(6px,1vw,8px) 0 clamp(18px,3vw,22px); color: #c9e2ea; font-size: var(--fs-sm); }
-  #rotate-fullscreen {
-    padding: clamp(10px,1.5vw,12px) clamp(16px,2.5vw,20px);
-    border: 3px solid white; border-radius: clamp(18px,3vw,22px);
-    color: white; background: #3ca24a; font-size: var(--fs-md); cursor: pointer;
-  }
+  .rotate-phone~p { max-width: min(310px,85vw); margin: clamp(6px,1vw,8px) 0; color: #c9e2ea; font-size: var(--fs-sm); }
 }
 @keyframes rotateHint { 0%,100% { transform: rotate(90deg) scale(.95); } 50% { transform: rotate(0) scale(1.05); } }
 

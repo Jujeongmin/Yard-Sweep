@@ -40,7 +40,6 @@
         </div>
         <div class="stat timer hud-actions-start"><span class="timer-icon"><i class="ui-icon icon-timer"></i></span><strong id="region-timer">00:00</strong></div>
         <div class="icon-button"><button class="round-button" id="shop-button" data-i18n-aria="aria.shop" aria-label="상점"><i class="ui-icon icon-shop"></i></button><span class="button-key">Tab</span></div>
-        <button class="round-button" id="fullscreen-button" data-i18n-aria="aria.fullscreen" aria-label="전체화면"><i class="ui-icon icon-fullscreen"></i></button>
         <div class="icon-button"><button class="round-button" id="settings" data-i18n-aria="aria.settings" aria-label="설정"><i class="ui-icon icon-settings"></i></button><span class="button-key">T</span></div>
       </header>
 
@@ -189,11 +188,32 @@
           <footer data-i18n="settings.footer">설정은 자동 저장됩니다</footer>
         </div>
       </section>
+      <!-- 첫 실행 온보딩. 계정에 닉네임이 없을 때만 로딩 직후 한 번 뜨고, 완료하거나
+           건너뛰면 게임이 시작된다. 설정 패널과는 별개 화면이며 값은 서로 공유한다. -->
+      <section id="onboarding" class="onboarding hidden" data-i18n-aria="aria.onboarding" aria-label="첫 설정">
+        <div class="onboarding-card">
+          <span class="mini-logo">YARD SWEEP</span>
+          <strong data-i18n="onboarding.title">환영합니다!</strong>
+          <p class="onboarding-lead" data-i18n="onboarding.lead">시작하기 전에 언어와 닉네임을 정해주세요.</p>
+          <h3 data-i18n="onboarding.language">언어</h3>
+          <div class="onboarding-row">
+            <button class="onboarding-lang" data-onboarding-lang="ko">한국어</button>
+            <button class="onboarding-lang" data-onboarding-lang="en">English</button>
+          </div>
+          <h3 data-i18n="onboarding.nickname">닉네임</h3>
+          <input type="text" id="onboarding-nickname" class="nickname-field" maxlength="15"
+                 data-i18n-placeholder="onboarding.nicknamePlaceholder" placeholder="닉네임 입력" />
+          <p id="onboarding-status" class="nickname-status"></p>
+          <div class="onboarding-row onboarding-actions">
+            <button id="onboarding-start" class="settings-btn" data-i18n="onboarding.start">시작하기</button>
+            <button id="onboarding-skip" class="onboarding-skip" data-i18n="onboarding.skip">나중에 하기</button>
+          </div>
+        </div>
+      </section>
       <aside id="rotate-screen" data-i18n-aria="aria.rotateScreen" aria-label="가로 화면 안내">
         <div class="rotate-phone">▯<span>↻</span></div>
         <strong data-i18n="rotate.title">기기를 가로로 돌려주세요</strong>
         <p data-i18n="rotate.body">Yard Sweep은 가로 화면에서 가장 편하게 플레이할 수 있어요.</p>
-        <button id="rotate-fullscreen"><i class="ui-icon icon-fullscreen"></i> <span data-i18n="rotate.fullscreenStart">전체화면으로 시작</span></button>
       </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>

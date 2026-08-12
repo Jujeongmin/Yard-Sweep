@@ -1182,7 +1182,8 @@ function updateTutorialUI() {
     return;
   }
   tutorialEl.classList.remove('hidden');
-  tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}`);
+  // 터치 기기에서는 WASD·좌클릭·Tab이 존재하지 않으므로 조이스틱·버튼 기준 문구를 쓴다.
+  tutorialTextEl.textContent = t(`tutorial.step${tutorialStep}${usesMobileControls() ? 'Mobile' : ''}`);
   tutorialProgressEl.textContent = t('tutorial.progress', { current: tutorialStep, total: 3 });
 }
 
@@ -1550,20 +1551,11 @@ function refreshFullscreenBanner() {
   }
 }
 
-function enterFullscreen() {
-  if (!document.fullscreenElement) {
-    try { document.documentElement.requestFullscreen(); } catch { /* ignore */ }
-  }
-  try {
-    const orientation = screen.orientation as ScreenOrientation & { lock?: (mode: string) => Promise<void> };
-    orientation.lock?.('landscape')?.catch(() => {});
-  } catch {}
-  setTimeout(() => {
-    if (!document.fullscreenElement && isTouchDevice()) {
-      showNotice(t('notice.rotateDevice'));
-    }
-  }, 800);
-}
+// 전체화면 진입 버튼은 없앴다. Verse8 셸 iframe에는 allow="fullscreen"이 없어
+// requestFullscreen()이 항상 거부되고(거부는 Promise로 와서 try/catch에도 안 잡힌다),
+// 전제 조건이 풀스크린인 screen.orientation.lock()도 함께 불가능하다. 눌러도 아무 일도
+// 일어나지 않는 버튼이라 제거하고, 가로 전환은 사용자가 기기를 직접 돌리는 것으로 통일한다.
+// (#fullscreen-prompt 배너는 F11을 쓸 수 있는 데스크톱 전용이라 그대로 둔다.)
 
 function showNotice(message: string) {
   notice.textContent = message;
@@ -2021,23 +2013,15 @@ function startGame() {
 
 start.addEventListener('click', () => {
   if (!assetsReady) return;
-  if (isTouchDevice() && !document.fullscreenElement) {
-    enterFullscreen();
-    return;
-  }
   startGame();
 });
 
 document.addEventListener('fullscreenchange', () => {
+  // 데스크톱에서 F11 등으로 전체화면을 오갈 때 배너만 갱신한다. 모바일에서는 전체화면
+  // 자체가 불가능하므로 여기서 게임을 시작하거나 멈추지 않는다 — 예전에는 전체화면을
+  // 벗어나면 터치 기기에서 게임을 정지시켰는데, 전체화면에 못 들어가는 환경에서는
+  // 그 분기가 게임을 시작조차 못 하게 만드는 원인이 됐다.
   refreshFullscreenBanner();
-  if (document.fullscreenElement) {
-    if (isTouchDevice() && assetsReady && !gameStarted) startGame();
-  }
-  if (!document.fullscreenElement && isTouchDevice() && !shopOpen && !settingsOpen) {
-    gameStarted = false;
-    stopCleaning();
-    bgmTracks.forEach((audio) => audio.pause());
-  }
   // The fullscreen transition interrupts any in-progress touch with pointercancel/touchcancel
   // (not pointerup/touchend), so reset movement/look input directly here as a safety net.
   resetJoystick();
@@ -2441,10 +2425,6 @@ function toggleSettings(force?: boolean) {
   }
 }
 document.querySelector('#shop-button')!.addEventListener('click', () => toggleShop());
-document.querySelector('#fullscreen-button')!.addEventListener('click', enterFullscreen);
-document.querySelector('#rotate-fullscreen')!.addEventListener('click', () => {
-  enterFullscreen();
-});
 document.querySelector('#shop-close')!.addEventListener('click', () => toggleShop(false));
 document.querySelector('#settings')!.addEventListener('click', () => toggleSettings());
 document.querySelector('#settings-close')!.addEventListener('click', () => toggleSettings(false));
@@ -2510,6 +2490,67 @@ nicknameSaveBtn.addEventListener('click', async () => {
   nicknameSaveBtn.textContent = t('settings.nicknameSave');
   nicknameStatus.textContent = error || t('settings.nicknameSaved', { name: val });
 });
+
+// ── 첫 실행 온보딩 ──────────────────────────────────────────────────────────
+// 계정에 닉네임이 아직 없을 때만 로딩 직후 한 번 뜬다. 저장하거나 건너뛰면 게임이 시작된다.
+// 값은 설정 패널과 공유한다 — 닉네임은 setNickname(), 언어는 settings.language가 단일 출처다.
+const onboardingEl = document.querySelector<HTMLElement>('#onboarding')!;
+const onboardingNickname = document.querySelector<HTMLInputElement>('#onboarding-nickname')!;
+const onboardingStatus = document.querySelector<HTMLElement>('#onboarding-status')!;
+const onboardingStartBtn = document.querySelector<HTMLButtonElement>('#onboarding-start')!;
+const onboardingSkipBtn = document.querySelector<HTMLButtonElement>('#onboarding-skip')!;
+const onboardingLangs = document.querySelectorAll<HTMLButtonElement>('[data-onboarding-lang]');
+
+// applyLocale()은 문구만 바꾸고 선택 표시는 건드리지 않으므로, 온보딩과 설정 패널의
+// 언어 버튼 상태를 한 곳에서 함께 맞춘다.
+function syncLanguageButtons() {
+  onboardingLangs.forEach((button) => button.classList.toggle('selected', button.dataset.onboardingLang === settings.language));
+  langOptions.forEach((button) => button.classList.toggle('selected', button.dataset.lang === settings.language));
+}
+
+onboardingLangs.forEach((button) => button.addEventListener('click', () => {
+  settings.language = button.dataset.onboardingLang as 'ko' | 'en';
+  setLocale(settings.language);
+  applyLocale(); // 온보딩 창 문구까지 즉시 전환된다
+  syncLanguageButtons();
+  onboardingStatus.textContent = '';
+  persist();
+}));
+
+function closeOnboarding() {
+  onboardingEl.classList.add('hidden');
+  // 데스크톱은 시작 카드가 이미 활성화되어 있어 사용자가 직접 누른다.
+  if (isTouchDevice()) startGame();
+}
+
+onboardingSkipBtn.addEventListener('click', closeOnboarding);
+
+onboardingStartBtn.addEventListener('click', async () => {
+  const value = onboardingNickname.value.trim();
+  if (!value) { onboardingStatus.textContent = t('onboarding.empty'); return; }
+  onboardingStartBtn.disabled = true;
+  onboardingStartBtn.textContent = t('onboarding.saving');
+  const error = await setNickname(value);
+  onboardingStartBtn.disabled = false;
+  onboardingStartBtn.textContent = t('onboarding.start');
+  // 저장에 실패하면 창을 유지한다. 갇히지 않도록 건너뛰기는 계속 쓸 수 있다.
+  if (error) { onboardingStatus.textContent = error; return; }
+  closeOnboarding();
+});
+
+// 서버에 닉네임이 없을 때만 띄운다. 미연결이면 저장 자체가 불가능하므로 그냥 건너뛴다.
+function shouldShowOnboarding() {
+  return isConnected() && !getNickname();
+}
+
+function showOnboarding() {
+  onboardingStatus.textContent = '';
+  onboardingNickname.value = '';
+  syncLanguageButtons();
+  onboardingEl.classList.remove('hidden');
+  // 터치 기기에서 자동 포커스를 주면 키보드가 즉시 올라와 창을 가린다.
+  if (!isTouchDevice()) onboardingNickname.focus();
+}
 
 const resetDataBtn = document.querySelector<HTMLButtonElement>('#reset-data-btn')!;
 const resetDataStatus = document.querySelector('#reset-data-status')!;
@@ -2722,7 +2763,9 @@ selectCategory(1);
 // 서버 연결 후 계정 클라우드 세이브와 로컬 세이브를 비교해 최신 쪽을 사용한다.
 // 클라우드가 더 최신이면 로컬에 덮어쓰고 새로고침(1회)으로 적용 — 다른 기기에서 이어하기.
 // VX Shop에서 구매한 크리스탈/광고제거도 서버 상태를 우선으로 동기화한다.
-initRanking().then(async () => {
+// 온보딩은 "계정에 닉네임이 있는가"로 표시 여부를 정하므로 이 체인이 끝나야 판단할 수 있다.
+// 에셋 로딩과 병렬로 돌기 때문에 로딩이 끝날 무렵이면 대개 이미 완료되어 있다.
+const rankingReady = initRanking().then(async () => {
   const cloud = await loadCloudSave();
   const cloudSavedAt = Number((cloud as { savedAt?: number } | null)?.savedAt ?? 0);
   if (cloud && cloudSavedAt > saveData.savedAt) {
@@ -2862,7 +2905,17 @@ function startAssetLoadWhenReady() {
   if (assetLoadStarted) return;
   if (matchMedia('(pointer: coarse) and (orientation: portrait)').matches) return;
   assetLoadStarted = true;
-  void prepareGameAssets().then(() => {
+  void prepareGameAssets().then(async () => {
+    // 카메라·렌더 버퍼는 실제로 가로가 된 지금의 뷰포트 기준으로 다시 계산한다.
+    // 초기 resize()는 아직 세로일 때 돌아 세로 비율로 잡혀 있다. 회전 직후에는
+    // 뷰포트 크기가 몇 프레임에 걸쳐 정착하므로 resizeSoon()으로 지연 재확인까지 한다.
+    resizeSoon();
+    // 닉네임 조회가 끝나야 온보딩 표시 여부를 판단할 수 있다. 실패해도 그대로 진행한다.
+    await rankingReady.catch(() => undefined);
+    if (shouldShowOnboarding()) {
+      showOnboarding(); // 저장 또는 건너뛰기 후 closeOnboarding()이 게임을 시작한다
+      return;
+    }
     if (isTouchDevice()) startGame();
   });
 }

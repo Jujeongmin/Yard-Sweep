@@ -45,7 +45,6 @@ const ko: Dict = {
   'label.cleaningItem': '{label} 청소 중',
 
   'aria.shop': '상점',
-  'aria.fullscreen': '전체화면',
   'aria.settings': '설정',
   'aria.shopClose': '상점 닫기',
   'aria.settingsClose': '설정 닫기',
@@ -174,12 +173,10 @@ const ko: Dict = {
 
   'rotate.title': '기기를 가로로 돌려주세요',
   'rotate.body': 'Yard Sweep은 가로 화면에서 가장 편하게 플레이할 수 있어요.',
-  'rotate.fullscreenStart': '전체화면으로 시작',
 
   'unit.coinGain': '+{n} 코인',
   'unit.gemGain': '+{n} 보석',
 
-  'notice.rotateDevice': '기기를 직접 가로로 돌려주세요',
   'notice.missionClaimed': '{label} 보상 수령!',
   'notice.achievementUnlocked': '{label} 달성!',
   'notice.toolLocked': '{name} 장비가 잠겨 있습니다',
@@ -190,9 +187,24 @@ const ko: Dict = {
   'notice.coinBoostActivated': '코인 부스터 발동! (30분간 코인 +100%)',
   'notice.robotVacuumAcquired': '로봇청소기 획득!',
 
+  'onboarding.title': '환영합니다!',
+  'onboarding.lead': '시작하기 전에 언어와 닉네임을 정해주세요. 나중에 설정에서 바꿀 수 있어요.',
+  'onboarding.language': '언어',
+  'onboarding.nickname': '닉네임',
+  'onboarding.nicknamePlaceholder': '닉네임 입력',
+  'onboarding.start': '시작하기',
+  'onboarding.skip': '나중에 하기',
+  'onboarding.saving': '저장 중...',
+  'onboarding.empty': '닉네임을 입력해주세요',
+  'aria.onboarding': '첫 설정',
   'tutorial.step1': 'WASD 키로 이동해보세요',
   'tutorial.step2': '좌클릭으로 낙엽을 청소하세요',
   'tutorial.step3': 'Tab 키를 눌러 상점을 열어보세요',
+  // 터치 기기에는 키보드도 마우스도 없다. 세 단계 모두 화면에 실제로 보이는
+  // 조작(조이스틱·청소 버튼·상점 버튼)으로 바꿔 안내한다.
+  'tutorial.step1Mobile': '왼쪽 조이스틱으로 이동해보세요',
+  'tutorial.step2Mobile': '청소 버튼을 길게 눌러 낙엽을 청소하세요',
+  'tutorial.step3Mobile': '상점 버튼을 눌러 상점을 열어보세요',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': '튜토리얼 완료!',
 
@@ -262,7 +274,6 @@ const en: Dict = {
   'label.cleaningItem': 'Cleaning {label}',
 
   'aria.shop': 'Shop',
-  'aria.fullscreen': 'Fullscreen',
   'aria.settings': 'Settings',
   'aria.shopClose': 'Close shop',
   'aria.settingsClose': 'Close settings',
@@ -391,12 +402,10 @@ const en: Dict = {
 
   'rotate.title': 'Please rotate your device',
   'rotate.body': 'Yard Sweep plays best in landscape mode.',
-  'rotate.fullscreenStart': 'Start in fullscreen',
 
   'unit.coinGain': '+{n} coins',
   'unit.gemGain': '+{n} gems',
 
-  'notice.rotateDevice': 'Please rotate your device to landscape',
   'notice.missionClaimed': '{label} reward claimed!',
   'notice.achievementUnlocked': '{label} achieved!',
   'notice.toolLocked': '{name} is locked',
@@ -407,9 +416,22 @@ const en: Dict = {
   'notice.coinBoostActivated': 'Coin Booster activated! (+100% coins for 30 min)',
   'notice.robotVacuumAcquired': 'Robot Vacuum acquired!',
 
+  'onboarding.title': 'Welcome!',
+  'onboarding.lead': 'Pick your language and nickname before you start. You can change both later in Settings.',
+  'onboarding.language': 'Language',
+  'onboarding.nickname': 'Nickname',
+  'onboarding.nicknamePlaceholder': 'Enter a nickname',
+  'onboarding.start': 'Start',
+  'onboarding.skip': 'Maybe later',
+  'onboarding.saving': 'Saving...',
+  'onboarding.empty': 'Please enter a nickname',
+  'aria.onboarding': 'First-time setup',
   'tutorial.step1': 'Move around using W A S D keys',
   'tutorial.step2': 'Click to clean leaves',
   'tutorial.step3': 'Press Tab to open the shop',
+  'tutorial.step1Mobile': 'Move around with the left joystick',
+  'tutorial.step2Mobile': 'Hold the clean button to clean leaves',
+  'tutorial.step3Mobile': 'Tap the shop button to open the shop',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': 'Tutorial complete!',
 
