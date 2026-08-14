@@ -5,7 +5,6 @@ import { t } from './i18n';
 let server: GameServer | null = null;
 let connected = false;
 let nickname: string | null = null;
-let lastSyncTime = 0;
 let pendingLevel = 0;
 let pendingExp = 0;
 let hasPendingStats = false;
@@ -98,7 +97,7 @@ export async function setNickname(value: string) {
     await server.remoteFunction('setNickname', [value.trim()]);
     nickname = value.trim();
     updateNicknameUI();
-    lastSyncTime = 0;
+    // 닉네임이 없어서 서버가 거절했던 점수가 남아 있으면 지금 바로 올린다.
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     await flushPendingStats();
     return null;
@@ -154,12 +153,14 @@ export async function loadCloudSave(): Promise<Record<string, unknown> | null> {
   }
 }
 
+// 호출부(main.ts)가 레벨이 바뀔 때만 부르므로 스로틀 없이 바로 보낸다.
+// 레벨업은 오브젝트 100개당 1회라 호출 빈도가 낮고, 즉시 보내야 랭킹이 곧바로 갱신된다.
 export async function syncStats(level: number, exp: number) {
   if (!server || !connected) return;
   pendingLevel = level;
   pendingExp = exp;
   hasPendingStats = true;
-  scheduleStatsSync(Math.max(0, 600000 - (Date.now() - lastSyncTime)));
+  await flushPendingStats();
 }
 
 function scheduleStatsSync(delay: number) {
@@ -177,16 +178,14 @@ async function flushPendingStats() {
   const exp = pendingExp;
   try {
     await server.remoteFunction('updatePlayerStats', [level, exp]);
-    lastSyncTime = Date.now();
     if (pendingLevel === level && pendingExp === exp) hasPendingStats = false;
   } catch {
     // Keep the latest score pending and retry instead of silently losing it.
     scheduleStatsSync(30000);
   } finally {
     syncInFlight = false;
-    if (hasPendingStats && !syncTimer) {
-      scheduleStatsSync(Math.max(0, 600000 - (Date.now() - lastSyncTime)));
-    }
+    // 전송 중에 레벨이 또 올라 값이 갱신됐다면 곧바로 한 번 더 보낸다.
+    if (hasPendingStats && !syncTimer) scheduleStatsSync(0);
   }
 }
 

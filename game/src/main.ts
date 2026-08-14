@@ -1597,9 +1597,13 @@ function getLevelInfo() {
   return { level, progressPercent };
 }
 
-// Hook for the platform's (Verse8) ranking/leaderboard integration. Called whenever
-// the player's level changes so it can be reported to the platform's ranking API.
+// 랭킹 갱신은 레벨이 바뀔 때만 보낸다. updateHud()는 오브젝트를 하나 치울 때마다 도는데
+// 거기서 매번 전송하면 서버 호출이 과해져 10분 스로틀을 걸어야 했고, 그 탓에 레벨업 직후
+// 랭킹을 열어도 옛 점수가 보였다. 레벨업은 100개당 1회라 즉시 보내도 부담이 없다.
+let lastSyncedLevel = -1;
 function reportScoreToPlatform(level: number, expProgress: number) {
+  if (level === lastSyncedLevel) return;
+  lastSyncedLevel = level;
   syncStats(level, expProgress);
 }
 
