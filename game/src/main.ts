@@ -16,7 +16,7 @@ import {
   type RegionId,
   type ToolId,
 } from './gameData';
-import { getLocale, setLocale, t } from './i18n';
+import { getLocale, setLocale, t, isLocale, type Locale } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, prefetchRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
 import { claimAdFreeGemReward } from './ranking';
@@ -1018,7 +1018,7 @@ interface PlayerStats {
   totalCleaned: number;
 }
 interface GameSettings {
-  language: 'ko' | 'en';
+  language: Locale;
   bgmVolume: number;
   sfxVolume: number;
   sensitivity: number;
@@ -1089,7 +1089,12 @@ function loadSave(): SaveData {
       achievementsClaimed: Array.isArray(parsed.achievementsClaimed) ? parsed.achievementsClaimed : [],
       coinBoostExpiry: Number(parsed.coinBoostExpiry) || 0,
       robotVacuumOwned: Boolean(parsed.robotVacuumOwned),
-      settings: { ...defaultSettings, ...(parsed.settings ?? {}) },
+      settings: (() => {
+        const merged = { ...defaultSettings, ...(parsed.settings ?? {}) };
+        // 지원하지 않는 언어 코드가 저장돼 있으면 t()가 키를 그대로 뱉으므로 기본값으로 되돌린다.
+        if (!isLocale(merged.language)) merged.language = defaultSettings.language;
+        return merged;
+      })(),
       tutorial: Number.isFinite(Number(parsed.tutorial)) ? Number(parsed.tutorial) : 0,
       chestDayClaimed: Number.isFinite(Number(parsed.chestDayClaimed)) ? Number(parsed.chestDayClaimed) : -1,
       adsRemoved: Boolean(parsed.adsRemoved),
@@ -2467,7 +2472,7 @@ sensitivitySlider.addEventListener('input', () => {
 const langOptions = document.querySelectorAll<HTMLButtonElement>('.lang-option');
 langOptions.forEach((button) => button.classList.toggle('selected', button.dataset.lang === settings.language));
 langOptions.forEach((button) => button.addEventListener('click', () => {
-  settings.language = button.dataset.lang as 'ko' | 'en';
+  settings.language = button.dataset.lang as Locale;
   langOptions.forEach((item) => item.classList.toggle('selected', item === button));
   setLocale(settings.language);
   applyLocale();
@@ -2513,7 +2518,7 @@ function syncLanguageButtons() {
 }
 
 onboardingLangs.forEach((button) => button.addEventListener('click', () => {
-  settings.language = button.dataset.onboardingLang as 'ko' | 'en';
+  settings.language = button.dataset.onboardingLang as Locale;
   setLocale(settings.language);
   applyLocale(); // 온보딩 창 문구까지 즉시 전환된다
   syncLanguageButtons();

@@ -353,11 +353,16 @@ button { font: inherit; }
   background: rgba(8,22,31,.72); backdrop-filter: blur(7px);
 }
 .shop.open { display: block; }
+/* 세로 공간이 좁으면(가로 모드 폰) 헤더·탭이 커진 만큼 본문이 줄어야 한다.
+   flex 컬럼이 아니면 헤더/탭 높이 + 본문 55vh 합이 88vh를 넘어 footer가 잘렸다.
+   (일본어·번체는 글자 높이가 커서 한국어보다 10~15px 더 넘쳤다) */
 .shop-panel {
   width: min(780px, 95vw); max-height: 88vh; margin: auto; overflow: hidden;
+  display: flex; flex-direction: column;
   border: clamp(3px,0.5vw,4px) solid #fff; border-radius: var(--radius-lg);
   background: #eef3e5; color: #263b42; text-shadow: none;
 }
+.shop-panel>header, .shop-tabs, .shop-panel>footer { flex: 0 0 auto; }
 .shop-panel>header {
   display: flex; align-items: center; gap: var(--gap-md);
   padding: var(--pad-sm) var(--pad-md);
@@ -388,6 +393,7 @@ button { font: inherit; }
 .shop-tabs button.selected { color: white; background: #395c55; }
 .shop-content {
   display: none; max-height: 55vh; overflow: auto;
+  flex: 1 1 auto; min-height: 0;
   padding: var(--pad-sm) var(--pad-md) clamp(14px,2vw,18px);
   background: #dfe8d8;
 }
@@ -444,6 +450,7 @@ button { font: inherit; }
 /* ── Settings ── */
 .settings-content {
   max-height: 60vh; overflow: auto;
+  flex: 1 1 auto; min-height: 0;
   padding: var(--pad-md) var(--pad-md);
   background: #dfe8d8;
 }
