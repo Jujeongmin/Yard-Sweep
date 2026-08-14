@@ -189,55 +189,105 @@ async function flushPendingStats() {
   }
 }
 
-export async function loadRankings() {
+// ── 랭킹 캐시 ──
+// 로비에서 미리 받아두고, 탭을 열면 캐시를 즉시 그린다(로딩 표시 없음).
+// 그린 뒤 백그라운드로 다시 받아 조용히 최신값으로 바꾼다(stale-while-revalidate).
+interface RankingSnapshot {
+  top: any[];
+  mine: { entry: any | null; rank: number };
+}
+let rankingCache: RankingSnapshot | null = null;
+let rankingFetchInFlight: Promise<RankingSnapshot | null> | null = null;
+
+async function fetchRankings(): Promise<RankingSnapshot | null> {
+  if (!server || !connected) return null;
+  // 동시에 여러 번 부르면 요청이 겹치므로 진행 중인 것을 재사용한다.
+  if (rankingFetchInFlight) return rankingFetchInFlight;
+  rankingFetchInFlight = (async () => {
+    try {
+      const [top, mine] = await Promise.all([
+        server!.remoteFunction('getTopRankings'),
+        server!.remoteFunction('getMyRank'),
+      ]);
+      const snapshot: RankingSnapshot = {
+        top: top as any[],
+        mine: mine as { entry: any | null; rank: number },
+      };
+      rankingCache = snapshot;
+      return snapshot;
+    } catch {
+      return null;
+    } finally {
+      rankingFetchInFlight = null;
+    }
+  })();
+  return rankingFetchInFlight;
+}
+
+/** 로비/초기화 단계에서 미리 받아둔다. 실패해도 조용히 넘어간다. */
+export function prefetchRankings() {
+  void fetchRankings();
+}
+
+function renderRankings(snapshot: RankingSnapshot) {
   const listEl = document.querySelector('#ranking-list')!;
   const myRankEl = document.querySelector('#ranking-my-rank')!;
-  const loadingEl = document.querySelector('#ranking-loading')!;
   const emptyEl = document.querySelector('#ranking-empty')!;
 
-  if (!server || !connected) {
-    loadingEl.textContent = t('ranking.noConnection');
-    return;
-  }
+  const { top: topRanks, mine: myRank } = snapshot;
 
-  loadingEl.classList.remove('hidden');
-  emptyEl.classList.add('hidden');
+  myRankEl.textContent = myRank.entry
+    ? `#${myRank.rank} · Lv.${myRank.entry.level} · ${myRank.entry.exp.toLocaleString()}/100 XP`
+    : '-';
 
-  try {
-    const [top, mine] = await Promise.all([
-      server.remoteFunction('getTopRankings'),
-      server.remoteFunction('getMyRank'),
-    ]);
-
-    const topRanks = top as any[];
-    const myRank = mine as { entry: any | null; rank: number };
-
-    if (myRank.entry) {
-      myRankEl.textContent = `#${myRank.rank} · Lv.${myRank.entry.level} · ${myRank.entry.exp.toLocaleString()}/100 XP`;
-    } else {
-      myRankEl.textContent = '-';
-    }
-
-    listEl.innerHTML = topRanks
-      .map(
-        (entry, i) =>
-          `<article class="ranking-row${entry.account === server?.account ? ' me' : ''}">
+  listEl.innerHTML = topRanks
+    .map(
+      (entry, i) =>
+        `<article class="ranking-row${entry.account === server?.account ? ' me' : ''}">
             <span class="ranking-rank">#${i + 1}</span>
             <div>
               <h3>${escapeHTML(entry.nickname)}</h3>
               <p>Lv.${entry.level} · ${entry.exp.toLocaleString()}/100 XP</p>
             </div>
           </article>`,
-      )
-      .join('');
+    )
+    .join('');
 
-    if (topRanks.length === 0) {
-      emptyEl.classList.remove('hidden');
-    }
-  } catch {
-    loadingEl.textContent = t('ranking.loadError');
-  } finally {
+  emptyEl.classList.toggle('hidden', topRanks.length > 0);
+}
+
+export async function loadRankings() {
+  const loadingEl = document.querySelector('#ranking-loading')!;
+  const emptyEl = document.querySelector('#ranking-empty')!;
+
+  if (!server || !connected) {
+    loadingEl.classList.remove('hidden');
+    loadingEl.textContent = t('ranking.noConnection');
+    return;
+  }
+
+  // 캐시가 있으면 기다리지 않고 바로 보여준 뒤, 뒤에서 새로 받아 조용히 교체한다.
+  if (rankingCache) {
     loadingEl.classList.add('hidden');
+    renderRankings(rankingCache);
+    void fetchRankings().then((fresh) => {
+      // 사용자가 탭을 떠났어도 DOM만 갱신하는 것이라 부작용은 없다.
+      if (fresh) renderRankings(fresh);
+    });
+    return;
+  }
+
+  // 캐시가 없을 때만 로딩 표시를 띄운다(첫 진입/프리페치 실패).
+  loadingEl.classList.remove('hidden');
+  loadingEl.textContent = t('ranking.loading');
+  emptyEl.classList.add('hidden');
+  const snapshot = await fetchRankings();
+  if (snapshot) {
+    renderRankings(snapshot);
+    loadingEl.classList.add('hidden');
+  } else {
+    // 실패 문구는 남겨둔다. 예전엔 finally가 곧바로 숨겨서 빈 화면만 보였다.
+    loadingEl.textContent = t('ranking.loadError');
   }
 }
 

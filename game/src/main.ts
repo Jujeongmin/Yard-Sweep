@@ -17,7 +17,7 @@ import {
   type ToolId,
 } from './gameData';
 import { getLocale, setLocale, t } from './i18n';
-import { initRanking, isConnected, syncStats, loadRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
+import { initRanking, isConnected, syncStats, loadRankings, prefetchRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
 import { claimAdFreeGemReward } from './ranking';
 import './style.css';
@@ -2770,6 +2770,9 @@ selectCategory(1);
 // 온보딩은 "계정에 닉네임이 있는가"로 표시 여부를 정하므로 이 체인이 끝나야 판단할 수 있다.
 // 에셋 로딩과 병렬로 돌기 때문에 로딩이 끝날 무렵이면 대개 이미 완료되어 있다.
 const rankingReady = initRanking().then(async () => {
+  // 랭킹을 미리 받아 캐시해둔다. 탭을 열면 로딩 없이 바로 뜨고 뒤에서 조용히 갱신된다.
+  // 아래 클라우드 세이브 동기화를 기다릴 필요가 없어 병렬로 먼저 띄운다.
+  prefetchRankings();
   const cloud = await loadCloudSave();
   const cloudSavedAt = Number((cloud as { savedAt?: number } | null)?.savedAt ?? 0);
   if (cloud && cloudSavedAt > saveData.savedAt) {
