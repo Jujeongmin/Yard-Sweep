@@ -142,6 +142,7 @@
 
 - 광고는 두 곳에서만 뜬다: 지역 완료 카드의 `region-double-reward`(보상 2배), 프리미엄 탭의 `gem-reward-30`(30분 쿨다운마다 보석 30개).
 - 반드시 유저의 클릭/탭에서만 호출하고 자동 재생하지 않는다. SDK가 한 번에 하나의 광고만 띄우므로 `isAdBusy()`로 중복 호출을 막고 버튼을 비활성화한다. `unsupported_env`가 오면 해당 광고 버튼을 아예 숨긴다.
+- `showRewarded()`에 `timeoutMs`를 주지 않는다(SDK 0.5.0). 값을 생략하면 SDK가 타이머를 걸지 않고 호스트 응답을 무한정 기다린다. 제한을 걸어두면 유저가 광고를 끝까지 본 뒤 결과가 도착해도 이미 `timeout` 실패로 처리돼 보상이 날아간다.
 - 결과 분기는 `rewarded` / `dismissed` / `failed` 세 가지를 구분한다. 특히 `busy`는 조용히 무시하고, `timeout`·`platform_error`는 "광고를 불러오지 못했습니다"로 안내한다 — 유저가 광고를 닫은 게 아닌데 "끝까지 시청해주세요"라고 하면 안 되기 때문이다.
 - **지급은 서버 검증 후에만 이뤄진다.** 보석은 실제로 판매하는 재화라 문서가 서버 검증을 요구하는 대상에 해당한다. 클라이언트는 SDK가 준 `requestId`를 서버 `claimAdReward(placementId, requestId)`로 넘기고, 서버가 `https://ads-verifier.verse8.io/ads/status`를 조회해 `verified`일 때만 지급한다(`pending`이면 1.5초 간격으로 최대 4회 재시도).
 - 지급량은 서버의 `AD_PLACEMENTS` 테이블에서만 나온다. 클라이언트가 보낸 값이나 verifier 응답의 `reward.amount`(문서상 UX 힌트일 뿐)는 쓰지 않는다. 보석은 VX 구매와 동일한 `crystals` 계정 상태에 적립되고, 클라이언트는 서버 값이 더 크면 그걸 채택한다.

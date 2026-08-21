@@ -22,7 +22,9 @@ export async function showRewardAd(placementId: string, onResult: AdCallback) {
   adBusy = true;
 
   try {
-    const result = await Verse8Ads.showRewarded({ placementId, timeoutMs: 300_000 });
+    // 타임아웃을 주지 않는다. 호스트가 응답할 때까지 기다린다 — 제한을 걸면 유저가
+    // 광고를 끝까지 본 뒤에 결과가 와도 이미 실패로 처리돼 보상이 날아간다.
+    const result = await Verse8Ads.showRewarded({ placementId });
 
     switch (result.status) {
       case 'rewarded':
