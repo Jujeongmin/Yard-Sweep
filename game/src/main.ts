@@ -1562,6 +1562,23 @@ function refreshFullscreenBanner() {
 // 일어나지 않는 버튼이라 제거하고, 가로 전환은 사용자가 기기를 직접 돌리는 것으로 통일한다.
 // (#fullscreen-prompt 배너는 F11을 쓸 수 있는 데스크톱 전용이라 그대로 둔다.)
 
+// 다만 우리가 직접 풀스크린에 들어가지 못할 뿐, 플랫폼(Verse8 셸)이 자체 풀스크린
+// 버튼으로 넣어주는 경우는 있다. 그 순간을 잡아 가로 고정을 시도한다 — 성공하면
+// 사용자가 기기를 돌릴 필요가 없어지고, #rotate-screen 안내도 미디어쿼리가 더 이상
+// 매치되지 않아 저절로 사라진다. 미지원(iOS Safari)·거부면 조용히 무시하고 기존
+// 회전 안내가 그대로 대비책 역할을 한다.
+function tryLockLandscape() {
+  const orientation = screen.orientation as ScreenOrientation & {
+    lock?: (o: string) => Promise<void>;
+  };
+  if (typeof orientation?.lock !== 'function') return;
+  orientation.lock('landscape').catch(() => {});
+}
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) tryLockLandscape();
+});
+if (document.fullscreenElement) tryLockLandscape(); // 이미 풀스크린으로 로드된 경우
+
 function showNotice(message: string) {
   notice.textContent = message;
   notice.classList.add('show');
