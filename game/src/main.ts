@@ -1295,7 +1295,6 @@ const coinsEl = document.querySelector('#coins')!;
 const gemsEl = document.querySelector('#gems')!;
 const playerLevelEl = document.querySelector('#player-level')!;
 const levelBarFill = document.querySelector<HTMLElement>('#level-bar-fill')!;
-const rankingMyLevelEl = document.querySelector('#ranking-my-rank')!;
 const coinBoostBadge = document.querySelector<HTMLElement>('#coin-boost-badge')!;
 const coinBoostTimerEl = document.querySelector('#coin-boost-timer')!;
 const coinBoostButton = document.querySelector<HTMLButtonElement>('#buy-coin-boost')!;
@@ -1640,7 +1639,9 @@ function updateHud(reward = 0, gemReward = 0) {
   const { level, progressPercent } = getLevelInfo();
   playerLevelEl.textContent = `Lv.${level}`;
   levelBarFill.style.width = `${progressPercent}%`;
-  rankingMyLevelEl.textContent = `Lv.${level}`;
+  // #ranking-my-rank는 랭킹 탭의 "내 순위" 칸이라 renderRankings()가 소유한다.
+  // 예전엔 여기서도 "Lv.N"으로 덮어써서, 랭킹을 띄운 뒤 오브젝트를 하나만 치워도
+  // (updateHud()가 매번 돌기 때문에) 순위가 곧바로 사라진 것처럼 보였다.
   reportScoreToPlatform(level, progressPercent);
   if (reward > 0 || gemReward > 0) {
     playCoinSound();
@@ -2792,6 +2793,12 @@ selectCategory(1);
 // 온보딩은 "계정에 닉네임이 있는가"로 표시 여부를 정하므로 이 체인이 끝나야 판단할 수 있다.
 // 에셋 로딩과 병렬로 돌기 때문에 로딩이 끝날 무렵이면 대개 이미 완료되어 있다.
 const rankingReady = initRanking().then(async () => {
+  // 접속되자마자 지금 레벨/경험치를 서버에 올려 내 랭킹 행을 만든다.
+  // 이게 없으면 다음 레벨업(오브젝트 100개) 전까지 rankings 컬렉션에 행이 없어
+  // 내 순위가 계속 "-"로 뜨고, 아무도 레벨업하지 않은 동안엔 상위 목록도 비어 보였다.
+  const { level, progressPercent } = getLevelInfo();
+  lastSyncedLevel = level;
+  await syncStats(level, progressPercent);
   // 랭킹을 미리 받아 캐시해둔다. 탭을 열면 로딩 없이 바로 뜨고 뒤에서 조용히 갱신된다.
   // 아래 클라우드 세이브 동기화를 기다릴 필요가 없어 병렬로 먼저 띄운다.
   prefetchRankings();

@@ -1,6 +1,14 @@
 function normalizeCollectionCount(result: unknown): number {
   if (typeof result === 'number' && Number.isFinite(result)) return result;
 
+  // 배열이나 { items: [...] } 형태로 돌려주는 런타임도 있어 길이를 세어 받는다.
+  if (Array.isArray(result)) return result.length;
+
+  if (result && typeof result === 'object') {
+    const items = (result as { items?: unknown }).items;
+    if (Array.isArray(items)) return items.length;
+  }
+
   if (result && typeof result === 'object') {
     const record = result as { count?: unknown; data?: unknown };
     const directCount = Number(record.count);
@@ -300,6 +308,21 @@ export class Server {
     return { success: true };
   }
 
+  // countCollectionItems의 응답 형태가 런타임마다 달라 파싱에 실패하는 일이 있었다
+  // ("Invalid collection count response."). 그러면 getMyRank 전체가 던지고,
+  // 클라이언트의 Promise.all이 함께 무너져 랭킹이 아예 안 뜬다.
+  // 파싱이 안 되면 실제 행을 가져와 세는 쪽으로 물러선다.
+  private async countRankings(filters: any[]): Promise<number> {
+    try {
+      return normalizeCollectionCount(
+        await $global.countCollectionItems('rankings', { filters }),
+      );
+    } catch {
+      const items = await $global.getCollectionItems('rankings', { filters, limit: 1000 });
+      return Array.isArray(items) ? items.length : 0;
+    }
+  }
+
   async getTopRankings(): Promise<any[]> {
     return await $global.getCollectionItems('rankings', {
       orderBy: [{ field: 'score', direction: 'desc' }],
@@ -321,20 +344,12 @@ export class Server {
 
     const myEntry = myEntries[0];
 
-    const [higherLevelCount, higherExpAtSameLevelCount] = await Promise.all([
-      $global.countCollectionItems('rankings', {
-        filters: [{ field: 'level', operator: '>', value: myEntry.level }],
-      }),
-      $global.countCollectionItems('rankings', {
-        filters: [
-          { field: 'level', operator: '==', value: myEntry.level },
-          { field: 'exp', operator: '>', value: myEntry.exp },
-        ],
-      }),
-    ]);
-    const rank = normalizeCollectionCount(higherLevelCount)
-      + normalizeCollectionCount(higherExpAtSameLevelCount)
-      + 1;
+    // getTopRankings가 score 내림차순으로 정렬하므로 순위도 score 하나로 센다.
+    // 예전에는 level/exp 두 번을 세어 정렬 기준과 어긋날 여지가 있었다.
+    const myScore = Number(myEntry.score) || 0;
+    const rank = await this.countRankings([
+      { field: 'score', operator: '>', value: myScore },
+    ]) + 1;
     return { entry: myEntry, rank };
   }
 }
