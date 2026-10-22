@@ -4,9 +4,11 @@ import {
   achievements,
   categories,
   categoryOrder,
+  MAX_REGION,
   missionPool,
   objects,
   regionCompletionRewards,
+  regionIds,
   regions,
   tools,
   type AchievementId,
@@ -20,6 +22,7 @@ import { getLocale, setLocale, t, isLocale, type Locale } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, prefetchRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
 import { claimAdFreeGemReward } from './ranking';
+import { buildBeachWorld, buildParkWorld, buildYardSurroundings, createSkyDome, type Circle, type RegionWorld } from './scenery';
 import './style.css';
 
 type Cleanable = THREE.Group & {
@@ -35,9 +38,12 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x66c8f2);
-scene.fog = new THREE.Fog(0x8dd4ef, 28, 62);
+// 안개는 지평선(하늘 돔 아래쪽)과 같은 색이라, 먼 언덕·바다가 하늘로 자연스럽게 녹아든다.
+scene.fog = new THREE.Fog(0x8dd4ef, 40, 170);
+const skyDome = createSkyDome();
+scene.add(skyDome.mesh);
 
-const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 500);
 const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 13 : 11;
 camera.position.set(0, 1.85, cameraBaseZ);
 scene.add(camera);
@@ -50,6 +56,12 @@ sun.shadow.mapSize.set(isTouchDevice() ? 1024 : 2048, isTouchDevice() ? 1024 : 2
 sun.shadow.camera.left = -24; sun.shadow.camera.right = 24;
 sun.shadow.camera.top = 24; sun.shadow.camera.bottom = -24;
 scene.add(sun);
+scene.add(sun.target); // 그림자 범위가 플레이어를 따라가도록 해와 과녁을 매 프레임 옮긴다
+const SUN_OFFSET = new THREE.Vector3(-10, 18, 8);
+
+// 마당(지역 1~3)에만 있는 것: 집·울타리·나무·바닥·동네 배경. 공원·해변에서는 통째로 숨긴다.
+const yardWorld = new THREE.Group();
+scene.add(yardWorld);
 
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(46, 40),
@@ -57,7 +69,7 @@ const ground = new THREE.Mesh(
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
-scene.add(ground);
+yardWorld.add(ground);
 
 const path = new THREE.Mesh(
   new THREE.PlaneGeometry(8, 38),
@@ -66,7 +78,7 @@ const path = new THREE.Mesh(
 path.rotation.x = -Math.PI / 2;
 path.position.y = 0.012;
 path.receiveShadow = true;
-scene.add(path);
+yardWorld.add(path);
 
 function box(size: [number, number, number], color: number, position: [number, number, number]) {
   const mesh = new THREE.Mesh(
@@ -75,7 +87,7 @@ function box(size: [number, number, number], color: number, position: [number, n
   );
   mesh.position.set(...position);
   mesh.castShadow = mesh.receiveShadow = true;
-  scene.add(mesh);
+  yardWorld.add(mesh);
   return mesh;
 }
 
@@ -92,7 +104,7 @@ box([11.4, 0.06, 4.4], 0xc9a06a, [-12, 0.03, -10]);    // 실내 바닥
 box([3.2, 0.04, 2.2], 0xa8524a, [-12, 0.07, -10]);     // 러그
 const interiorLight = new THREE.PointLight(0xffe6b8, 18, 12, 1.8);
 interiorLight.position.set(-12, 4.2, -10);
-scene.add(interiorLight);
+yardWorld.add(interiorLight);
 // 집 디테일: 창문(테두리·창살·창턱), 현관문, 굴뚝
 for (const x of [-15, -12, -9]) {
   box([1.9, 2.5, 0.1], 0x8a5a33, [x, 3.1, -7.49]);   // 창문 테두리
@@ -106,7 +118,7 @@ box([0.12, 2.8, 0.4], 0x6b4426, [-8.03, 1.4, -7.65]);  // 문설주 좌
 box([0.12, 2.8, 0.4], 0x6b4426, [-6.57, 1.4, -7.65]);  // 문설주 우
 const doorPivot = new THREE.Group();
 doorPivot.position.set(-7.95, 0, -7.65);
-scene.add(doorPivot);
+yardWorld.add(doorPivot);
 const doorPanel = new THREE.Mesh(
   new THREE.BoxGeometry(1.3, 2.55, 0.1),
   new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: 0.8 }),
@@ -131,7 +143,7 @@ const chestGroup = new THREE.Group();
 chestGroup.position.set(-12.5, 0, -10);
 // 상자 정면(자물쇠 쪽, +Z)이 현관문 쪽을 향하도록 90도 회전 (러그 위에 딱 맞게)
 chestGroup.rotation.y = Math.PI / 2;
-scene.add(chestGroup);
+yardWorld.add(chestGroup);
 const chestWoodMat = new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.7 });
 const chestGoldMat = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 0.55, roughness: 0.35 });
 const chestBody = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.62, 0.8), chestWoodMat);
@@ -167,7 +179,7 @@ for (let x = -21; x <= 21; x += 2.1) {
 // 배경 나무: 그래픽 품질에 따라 폴리곤 디테일을 바꿔 다시 생성할 수 있게 그룹으로 관리
 const treeSpecs: Array<[number, number, number]> = [[13, -10, 1.15], [17, 3, 0.9], [-17, 4, 1]];
 const treeGroup = new THREE.Group();
-scene.add(treeGroup);
+yardWorld.add(treeGroup);
 // 수관 블롭 오프셋(x, y, z, 크기 배율): 품질이 높을수록 여러 덩어리를 겹쳐 풍성하게
 const crownBlobOffsets: Array<[number, number, number, number]> = [
   [0, 0, 0, 1],
@@ -337,11 +349,41 @@ function randomHousePosition(): [number, number] {
 }
 
 // Region visual themes: front yard (grass), garden (flowers/hedges), stone garden (rock/gravel).
-const regionThemes: Record<RegionId, { sky: number; fog: number; ground: number; path: number }> = {
-  1: { sky: 0x66c8f2, fog: 0x8dd4ef, ground: 0x75b94b, path: 0xd9bb83 },
-  2: { sky: 0x78d6b8, fog: 0x9fe4cf, ground: 0x4f9e3f, path: 0xc9a86a },
-  3: { sky: 0xe0c9a0, fog: 0xd8c295, ground: 0xab9877, path: 0x8f7a5c },
+// sky = 하늘 꼭대기, fog = 지평선·안개, outer/hill = 마당 바깥 동네 바닥·먼 언덕(마당 지역만 사용).
+const regionThemes: Record<RegionId, { sky: number; fog: number; ground: number; path: number; outer: number; hill: number }> = {
+  1: { sky: 0x4fb6ec, fog: 0xbfe6f5, ground: 0x75b94b, path: 0xd9bb83, outer: 0x6aa944, hill: 0x7fb85a },
+  2: { sky: 0x5cc7b0, fog: 0xc4eedf, ground: 0x4f9e3f, path: 0xc9a86a, outer: 0x4a9140, hill: 0x5f9f55 },
+  3: { sky: 0xd3b37f, fog: 0xeadcb8, ground: 0xab9877, path: 0x8f7a5c, outer: 0x9d8a68, hill: 0xa89470 },
+  4: { sky: 0x58b9f0, fog: 0xcdeaf7, ground: 0x86c95a, path: 0xead6a8, outer: 0x86c95a, hill: 0x8cc46a },
+  5: { sky: 0x3fb0f2, fog: 0xd2f0fb, ground: 0xf3dfa6, path: 0xc98a4b, outer: 0xf3dfa6, hill: 0xe9d08c },
 };
+
+// 지역별 이동 범위·시작 위치. yard=true면 집이 있는 마당(지역 1~3)이고, 아니면 전용 월드를 쓴다.
+interface RegionLayout { yard: boolean; minX: number; maxX: number; minZ: number; maxZ: number; spawnZ: number }
+const yardLayout: RegionLayout = { yard: true, minX: -20, maxX: 20, minZ: -16, maxZ: 16, spawnZ: cameraBaseZ };
+const regionLayouts: Record<RegionId, RegionLayout> = {
+  1: yardLayout,
+  2: yardLayout,
+  3: yardLayout,
+  4: { yard: false, minX: -30, maxX: 30, minZ: -24, maxZ: 24, spawnZ: 22 },
+  5: { yard: false, minX: -30, maxX: 30, minZ: -11, maxZ: 24, spawnZ: 22 },
+};
+function isYardRegion() { return regionLayouts[currentRegionId].yard; }
+
+const yardSurroundings = buildYardSurroundings(isTouchDevice());
+yardWorld.add(yardSurroundings.group);
+const regionWorlds: Partial<Record<RegionId, RegionWorld>> = {
+  4: buildParkWorld(isTouchDevice()),
+  5: buildBeachWorld(isTouchDevice()),
+};
+for (const world of Object.values(regionWorlds)) {
+  world.group.visible = false;
+  scene.add(world.group);
+}
+function currentWorld() { return regionWorlds[currentRegionId]; }
+function hitsCollider(list: Circle[] | undefined, x: number, z: number, padding: number) {
+  return !!list?.some(([cx, cz, r]) => Math.hypot(x - cx, z - cz) < r + padding);
+}
 
 function flowerCluster(x: number, z: number, color: number) {
   const group = new THREE.Group();
@@ -391,7 +433,7 @@ for (const side of [-1, 1]) {
   }
 }
 gardenDecor.visible = false;
-scene.add(gardenDecor);
+yardWorld.add(gardenDecor);
 
 // Flat stepping-stone slabs: a dry rock-garden look that reads clearly differently from the
 // small round dodecahedron "stone" cleanable objects.
@@ -413,7 +455,7 @@ for (let i = 0; i < (isTouchDevice() ? 9 : 18); i++) {
   addDecorObstacle(3, x, z, 0.8);
 }
 stoneDecor.visible = false;
-scene.add(stoneDecor);
+yardWorld.add(stoneDecor);
 
 // Perimeter scenery hides the abrupt edge of the playable ground while keeping the
 // front path open. Everything sits outside the player clamp (x ±20, z ±16), so it
@@ -484,9 +526,9 @@ for (const [x, z, scale] of [
   [-19, 18.4, 0.9], [-13, 18.7, 1.1], [-7, 18.5, 0.85],
   [7, 18.5, 0.9], [13, 18.7, 1.05], [19, 18.4, 0.88],
 ] as Array<[number, number, number]>) addPerimeterTree(x, z, scale);
-scene.add(perimeterDecor);
+yardWorld.add(perimeterDecor);
 
-const perimeterFoliageColors: Record<RegionId, number> = {
+const perimeterFoliageColors: Record<1 | 2 | 3, number> = {
   1: 0x4f913f,
   2: 0x347b43,
   3: 0x746f4c,
@@ -494,13 +536,19 @@ const perimeterFoliageColors: Record<RegionId, number> = {
 
 function applyRegionTheme(regionId: RegionId) {
   const theme = regionThemes[regionId];
-  scene.background = new THREE.Color(theme.sky);
+  scene.background = new THREE.Color(theme.fog);
+  skyDome.setColors(theme.sky, theme.fog);
   (scene.fog as THREE.Fog).color.setHex(theme.fog);
+  const yard = regionLayouts[regionId].yard;
+  yardWorld.visible = yard;
+  for (const [id, world] of Object.entries(regionWorlds)) world.group.visible = Number(id) === regionId;
+  if (!yard) return;
   (ground.material as THREE.MeshStandardMaterial).color.setHex(theme.ground);
   (path.material as THREE.MeshStandardMaterial).color.setHex(theme.path);
+  yardSurroundings.recolor(theme.outer, theme.hill);
   gardenDecor.visible = regionId === 2;
   stoneDecor.visible = regionId === 3;
-  perimeterFoliageMaterial.color.setHex(perimeterFoliageColors[regionId]);
+  perimeterFoliageMaterial.color.setHex(perimeterFoliageColors[regionId as 1 | 2 | 3]);
 }
 
 function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
@@ -728,6 +776,155 @@ function createGoldStone(x: number, z: number) {
   group.add(stone);
 }
 
+// ── 공원·해변 전용 청소물 ──
+function createTrashBag(x: number, z: number) {
+  const group = cleanableGroup('trashBag', x, z);
+  group.position.y = 0.02;
+  group.rotation.y = Math.random() * Math.PI * 2;
+  // 밝은 민트색 + 위로 벌어진 매듭: 어두운 공 모양이면 폭탄처럼 보인다.
+  const bagMaterial = new THREE.MeshStandardMaterial({ color: 0x6cc79a, roughness: 0.4, metalness: 0.05 });
+  const bag = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 10), bagMaterial);
+  bag.scale.set(1.05, 1, 0.9);
+  bag.position.y = 0.38;
+  bag.castShadow = true;
+  group.add(bag);
+  const knot = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 8), bagMaterial);
+  knot.position.y = 0.86;
+  knot.rotation.x = Math.PI;
+  group.add(knot);
+  const tie = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.025, 6, 12), new THREE.MeshStandardMaterial({ color: 0xffd84a }));
+  tie.position.y = 0.74;
+  tie.rotation.x = Math.PI / 2;
+  group.add(tie);
+}
+
+function createBottle(x: number, z: number) {
+  const group = cleanableGroup('bottle', x, z);
+  group.position.y = 0.12;
+  group.rotation.y = Math.random() * Math.PI * 2;
+  const glass = new THREE.MeshStandardMaterial({ color: Math.random() < 0.5 ? 0x4fbf7a : 0x6fc3e8, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.82 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.42, 12), glass);
+  body.rotation.z = Math.PI / 2;
+  body.castShadow = true;
+  group.add(body);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.11, 0.2, 10), glass);
+  neck.rotation.z = Math.PI / 2;
+  neck.position.x = 0.3;
+  group.add(neck);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.06, 10), new THREE.MeshStandardMaterial({ color: 0xff6b6b }));
+  cap.rotation.z = Math.PI / 2;
+  cap.position.x = 0.42;
+  group.add(cap);
+}
+
+function createBush(x: number, z: number) {
+  const group = cleanableGroup('bush', x, z);
+  group.position.y = 0;
+  const leafMaterial = new THREE.MeshStandardMaterial({ color: 0x4a9a3a, flatShading: true, roughness: 0.9 });
+  for (const [bx, by, bz, s] of [[0, 0.45, 0, 0.55], [0.38, 0.32, 0.2, 0.38], [-0.35, 0.3, -0.15, 0.4], [0.05, 0.35, -0.38, 0.34]]) {
+    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), leafMaterial);
+    blob.position.set(bx, by, bz);
+    blob.castShadow = true;
+    group.add(blob);
+  }
+  const berryMaterial = new THREE.MeshStandardMaterial({ color: 0xe8435a, roughness: 0.5 });
+  for (let i = 0; i < 5; i++) {
+    const berry = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), berryMaterial);
+    const angle = Math.random() * Math.PI * 2;
+    berry.position.set(Math.cos(angle) * 0.5, 0.35 + Math.random() * 0.4, Math.sin(angle) * 0.5);
+    group.add(berry);
+  }
+}
+
+function createSeaweed(x: number, z: number) {
+  const group = cleanableGroup('seaweed', x, z);
+  group.position.y = 0.02;
+  group.rotation.y = Math.random() * Math.PI * 2;
+  const material = new THREE.MeshStandardMaterial({ color: 0x5f8f3a, roughness: 0.6, side: THREE.DoubleSide });
+  for (let i = 0; i < 6; i++) {
+    const strand = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.03, 0.1), material);
+    strand.position.set(0, 0.03 + i * 0.012, 0);
+    strand.rotation.y = (i / 6) * Math.PI + Math.random() * 0.3;
+    strand.castShadow = true;
+    group.add(strand);
+  }
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 5), new THREE.MeshStandardMaterial({ color: 0x8a7a2f }));
+  bulb.position.y = 0.08;
+  group.add(bulb);
+}
+
+function createBoulder(x: number, z: number) {
+  const group = cleanableGroup('boulder', x, z);
+  group.position.y = 0.42;
+  group.rotation.y = Math.random() * Math.PI * 2;
+  const rock = new THREE.Mesh(
+    new THREE.DodecahedronGeometry(0.7, 0),
+    new THREE.MeshStandardMaterial({ color: 0x7b8086, flatShading: true, roughness: 1 }),
+  );
+  rock.scale.set(1.15, 0.75, 1);
+  rock.castShadow = true;
+  group.add(rock);
+  // 이끼 덮인 윗면: 작은 회색 돌과 한눈에 구분된다
+  const moss = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 6, 0, Math.PI * 2, 0, Math.PI / 3), new THREE.MeshStandardMaterial({ color: 0x6aa944, roughness: 1, flatShading: true }));
+  moss.position.y = 0.12;
+  moss.scale.set(1.15, 0.9, 1);
+  group.add(moss);
+}
+
+const objectFactories: Record<ObjectKind, (x: number, z: number) => void> = {
+  leaf: createLeaf,
+  can: createCan,
+  grass: createGrass,
+  stone: createStone,
+  goldCan: createGoldCan,
+  goldChest: (x, z) => createChest('goldChest', x, z),
+  gemChest: (x, z) => createChest('gemChest', x, z),
+  goldStone: createGoldStone,
+  trashBag: createTrashBag,
+  bottle: createBottle,
+  bush: createBush,
+  seaweed: createSeaweed,
+  boulder: createBoulder,
+};
+
+// 공원·해변 스폰: 종류별로 어울리는 구역을 뽑고, 구조물(spawnAvoid)을 피한다.
+function openMapSpawnPoint(regionId: RegionId, kind: ObjectKind): [number, number] {
+  const layout = regionLayouts[regionId];
+  const world = regionWorlds[regionId]!;
+  const anywhere = (): [number, number] => [
+    layout.minX + 1 + Math.random() * (layout.maxX - layout.minX - 2),
+    layout.minZ + 1 + Math.random() * (layout.maxZ - layout.minZ - 2),
+  ];
+  const near = (points: Array<[number, number]> | undefined, min: number, max: number): [number, number] => {
+    if (!points?.length) return anywhere();
+    const [px, pz] = points[Math.floor(Math.random() * points.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist = min + Math.random() * (max - min);
+    return [px + Math.cos(angle) * dist, pz + Math.sin(angle) * dist];
+  };
+  let generate = anywhere;
+  if (regionId === 4) {
+    if (kind === 'bush') generate = () => { // 경계 생울타리 안쪽 띠
+      const [x, z] = anywhere();
+      return Math.random() < 0.5 ? [x, Math.sign(z || 1) * (19 + Math.random() * 4)] : [Math.sign(x || 1) * (25 + Math.random() * 4), z];
+    };
+    else if (kind === 'boulder' || kind === 'goldStone') generate = () => near(world.anchors.pond, 10.5, 13.5);
+    else if (kind === 'trashBag') generate = () => near(world.anchors.benches, 1.6, 3);
+  } else if (regionId === 5) {
+    if (kind === 'seaweed') generate = () => [layout.minX + 1 + Math.random() * (layout.maxX - layout.minX - 2), -10.5 + Math.random() * 4];
+    else if (kind === 'stone' || kind === 'boulder' || kind === 'goldStone') generate = () => [-29 + Math.random() * 9, -10 + Math.random() * 30];
+    else if (kind === 'trashBag') generate = () => near(world.anchors.umbrellas, 2.6, 4);
+  }
+  let pos = generate();
+  for (let tries = 0; tries < 30; tries++) {
+    const [x, z] = pos;
+    const inside = x > layout.minX + 0.5 && x < layout.maxX - 0.5 && z > layout.minZ + 0.5 && z < layout.maxZ - 0.5;
+    if (inside && !hitsCollider(world.spawnAvoid, x, z, 0)) break;
+    pos = tries < 20 ? generate() : anywhere();
+  }
+  return pos;
+}
+
 let currentRegionId: RegionId = 1;
 let total = 0;
 type RegionObjectCounts = Record<ObjectKind, number>;
@@ -743,7 +940,14 @@ function freshRegionCounts(regionId: RegionId): RegionObjectCounts {
   counts.goldCan = rareCount();
   counts.goldChest = rareCount();
   counts.gemChest = rareCount();
-  counts.goldStone = regionId === 3 ? rareCount() : 0;
+  counts.goldStone = counts.stone > 0 ? rareCount() : 0;
+  if (!regionLayouts[regionId].yard) {
+    // 넓은 지역은 희귀 오브젝트도 하나씩 더 깔아 둔다(찾아다니는 재미).
+    counts.goldCan += 1;
+    counts.goldChest += 1;
+    counts.gemChest += 1;
+    return counts;
+  }
   // 집 안 청소 오브젝트도 지역 완료 카운트에 포함
   counts.leaf = (counts.leaf ?? 0) + HOUSE_LEAF;
   counts.can = (counts.can ?? 0) + HOUSE_CAN;
@@ -754,6 +958,14 @@ function populateRegion(regionId: RegionId, state: RegionProgressState) {
   cleanables.forEach((object) => scene.remove(object));
   cleanables.length = 0;
   const counts = state.remaining;
+  if (!regionLayouts[regionId].yard) {
+    for (const kind of Object.keys(objectFactories) as ObjectKind[]) {
+      for (let i = 0; i < (counts[kind] ?? 0); i++) objectFactories[kind](...openMapSpawnPoint(regionId, kind));
+    }
+    total = state.total;
+    cleaned = Math.max(0, total - cleanables.length);
+    return;
+  }
   // 집 안 오브젝트는 실내 바닥(윗면 y≈0.06) 위에 앉도록 마지막 생성물의 y를 올린다.
   const liftLastIntoHouse = () => { cleanables[cleanables.length - 1].position.y = 0.11; };
   for (let i = 0; i < (counts.leaf ?? 0); i++) {
@@ -1016,6 +1228,8 @@ interface PlayerStats {
   coinsEarned: number;
   regionsCleared: number;
   totalCleaned: number;
+  boulderCleaned: number;
+  bestCombo: number;
 }
 interface GameSettings {
   language: Locale;
@@ -1048,8 +1262,11 @@ interface SaveData {
 
 const GEM_AD_COOLDOWN = 30 * 60 * 1000; // 30 minutes
 const GEM_AD_REWARD = 30;
-const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0 };
-const defaultMissionProgress: Record<MissionId, number> = { leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0 };
+const defaultStats: PlayerStats = { leafCleaned: 0, canCleaned: 0, coinsEarned: 0, regionsCleared: 0, totalCleaned: 0, boulderCleaned: 0, bestCombo: 0 };
+const defaultMissionProgress: Record<MissionId, number> = {
+  leaf100: 0, can30: 0, regionClear: 0, fastClear5min: 0, grass50: 0, stone20: 0, bigTrash15: 0, combo30: 0,
+};
+const UPGRADE_MAX = 15;
 const defaultSettings: GameSettings = { language: 'en', bgmVolume: 1, sfxVolume: 1, sensitivity: 1, graphicsQuality: 'high' };
 const defaultSave: SaveData = {
   coins: 0,
@@ -1078,8 +1295,8 @@ function loadSave(): SaveData {
     return {
       coins: Math.max(0, Number(parsed.coins) || 0),
       gems: Number.isFinite(Number(parsed.gems)) ? Math.max(0, Number(parsed.gems)) : defaultSave.gems,
-      currentRegion: ([1, 2, 3].includes(Number(parsed.currentRegion)) ? Number(parsed.currentRegion) : 1) as RegionId,
-      unlockedRegion: ([1, 2, 3].includes(Number(parsed.unlockedRegion)) ? Number(parsed.unlockedRegion) : 1) as RegionId,
+      currentRegion: ((regionIds as number[]).includes(Number(parsed.currentRegion)) ? Number(parsed.currentRegion) : 1) as RegionId,
+      unlockedRegion: ((regionIds as number[]).includes(Number(parsed.unlockedRegion)) ? Number(parsed.unlockedRegion) : 1) as RegionId,
       regionProgress: parsed.regionProgress ?? {},
       unlockedTools: Array.isArray(parsed.unlockedTools) ? parsed.unlockedTools : ['basicBroom'],
       equipped: { ...defaultSave.equipped, ...(parsed.equipped ?? {}) },
@@ -1121,6 +1338,8 @@ function comboMultiplier() {
 function registerComboClean() {
   comboCount += 1;
   comboTimer = COMBO_WINDOW;
+  if (comboCount > stats.bestCombo) stats.bestCombo = comboCount;
+  if (comboCount === 30) incrementMissionProgress('combo30');
   if (comboCount >= 2) {
     comboEl.classList.remove('hidden');
     comboCountEl.textContent = String(comboCount);
@@ -1165,7 +1384,7 @@ if (!chestAvailable()) { chestLidAngle = -1.9; chestGlow.visible = false; }
 chestLid.rotation.x = chestLidAngle;
 interactHintEl.addEventListener('click', () => { if (chestAvailable() && playerNearChest()) openChest(); });
 function playerNearChest() {
-  return Math.hypot(camera.position.x - chestGroup.position.x, camera.position.z - chestGroup.position.z) < 2.6;
+  return isYardRegion() && Math.hypot(camera.position.x - chestGroup.position.x, camera.position.z - chestGroup.position.z) < 2.6;
 }
 currentRegionId = Math.min(saveData.currentRegion, saveData.unlockedRegion) as RegionId;
 let unlockedRegion = saveData.unlockedRegion;
@@ -1373,6 +1592,8 @@ const DOOR_BASE_VOLUME = 0.6;
 // 시작 시엔 현재 지역 곡만 받고, 나머지는 그 지역에 들어갈 때 받는다.
 const bgmTracks = [0, 1, 2].map((index) => new Audio(`/assets/bgm-${index}.mp3`));
 bgmTracks.forEach((audio) => { audio.loop = true; audio.preload = 'none'; });
+// 곡은 3개뿐이라 공원은 정원 곡, 해변은 앞 마당 곡을 함께 쓴다.
+function bgmIndexFor(regionId: RegionId) { return [0, 1, 2, 1, 0][regionId - 1]; }
 const buttonSound = new Audio('/assets/button-sound.mp3');
 const regionCompleteSound = new Audio('/assets/region-complete-sound.mp3');
 const coinSound = new Audio('/assets/coin-sound.mp3');
@@ -1452,7 +1673,7 @@ async function prepareGameAssets() {
     ...imagePaths.map(preloadImage),
     ...allAudio.map(preloadAudio),
     // 현재 지역 BGM 1곡만. 나머지 2곡은 해당 지역 진입 시 playRegionBgm()이 받는다.
-    preloadAudio(bgmTracks[currentRegionId - 1]),
+    preloadAudio(bgmTracks[bgmIndexFor(currentRegionId)]),
     ...FERN_PATHS.map(async (path) => {
       const source = await loadModelScene(path);
       await renderer.compileAsync(source, camera);
@@ -1523,7 +1744,7 @@ function setCleaningAudio(active: boolean) {
 
 function playRegionBgm() {
   bgmTracks.forEach((audio) => { audio.pause(); audio.currentTime = 0; });
-  const track = bgmTracks[currentRegionId - 1];
+  const track = bgmTracks[bgmIndexFor(currentRegionId)];
   // preload='none'으로 두었으므로 이 지역 곡을 처음 틀 때 여기서 받기 시작한다.
   if (track.preload !== 'auto') { track.preload = 'auto'; track.load(); }
   if (gameStarted) void track.play().catch(() => undefined);
@@ -1656,8 +1877,13 @@ function achievementProgressValue(id: AchievementId): number {
   switch (id) {
     case 'firstClean': return Math.min(stats.totalCleaned, 1);
     case 'coins1000': return stats.coinsEarned;
-    case 'allRegions': return unlockedRegion >= 3 ? 1 : 0;
+    case 'allRegions': return unlockedRegion >= MAX_REGION ? 1 : 0;
     case 'leaf10000': return stats.leafCleaned;
+    case 'regions10': return stats.regionsCleared;
+    case 'cleaned5000': return stats.totalCleaned;
+    case 'coins20000': return stats.coinsEarned;
+    case 'combo50': return stats.bestCombo;
+    case 'boulder100': return stats.boulderCleaned;
   }
 }
 
@@ -1829,7 +2055,8 @@ function enterRegion(regionId: RegionId) {
   applyRegionTheme(regionId);
   regionNameEl.textContent = t(regions[regionId].name);
   regionCompleteCard.classList.add('hidden');
-  camera.position.set(0, standingHeight, cameraBaseZ);
+  camera.position.set(0, standingHeight, regionLayouts[regionId].spawnZ);
+  robotVacuumPosition.set(0, 0, regionLayouts[regionId].spawnZ - 6);
   updateHud();
   playRegionBgm();
   persist();
@@ -1862,7 +2089,7 @@ function completeRegion() {
   pendingAdRewardGems = completionReward.gems;
   pendingAdDoubled = false;
 
-  if (currentRegionId < 3) {
+  if (currentRegionId < MAX_REGION) {
     unlockedRegion = Math.max(unlockedRegion, currentRegionId + 1) as RegionId;
     regionCompleteTitle.textContent = t('region.completeTitle', { region: t(regions[currentRegionId].name), reward: rewardSuffix });
     regionCompleteAction.textContent = t('region.moveTo', { region: t(regions[(currentRegionId + 1) as RegionId].name) });
@@ -1902,8 +2129,10 @@ function removeObject(object: Cleanable) {
   stats.coinsEarned += Math.floor(reward);
   if (object.userData.kind === 'leaf') stats.leafCleaned += 1;
   if (object.userData.kind === 'can') stats.canCleaned += 1;
-  if (object.userData.kind === 'leaf') incrementMissionProgress('leaf100');
-  if (object.userData.kind === 'can') incrementMissionProgress('can30');
+  if (object.userData.kind === 'boulder') stats.boulderCleaned += 1;
+  for (const mission of missionPool) {
+    if (mission.trackKinds?.includes(object.userData.kind)) incrementMissionProgress(mission.id);
+  }
   updateHud(reward, gemReward);
   checkMissionsAndAchievements();
   tutorialCleanCount += 1;
@@ -2055,7 +2284,7 @@ document.addEventListener('fullscreenchange', () => {
   canvasTouchId = null;
 });
 regionCompleteCard.addEventListener('click', () => {
-  const nextRegion = currentRegionId < 3 ? (currentRegionId + 1) as RegionId : 1;
+  const nextRegion = currentRegionId < MAX_REGION ? (currentRegionId + 1) as RegionId : 1;
   enterRegion(nextRegion);
   if (!usesMobileControls()) canvas.requestPointerLock?.();
 });
@@ -2359,7 +2588,7 @@ function refreshShop() {
   });
   document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => {
     const id = button.dataset.upgrade as UpgradeId;
-    button.innerHTML = upgrades[id] >= 10 ? 'MAX' : `${uiIcon('coin')} ${upgradePrice(id)}`;
+    button.innerHTML = upgrades[id] >= UPGRADE_MAX ? 'MAX' : `${uiIcon('coin')} ${upgradePrice(id)}`;
     document.querySelector(`#level-${id}`)!.textContent = `Lv.${upgrades[id]}`;
   });
   document.querySelectorAll<HTMLButtonElement>('.select-region').forEach((button) => {
@@ -2650,7 +2879,7 @@ document.querySelectorAll<HTMLButtonElement>('.tool-action').forEach((button) =>
 }));
 document.querySelectorAll<HTMLButtonElement>('.buy-upgrade').forEach((button) => button.addEventListener('click', () => {
   const id = button.dataset.upgrade as UpgradeId;
-  if (upgrades[id] >= 10) return;
+  if (upgrades[id] >= UPGRADE_MAX) return;
   const price = upgradePrice(id);
   if (coins < price) { showNotice(t('notice.notEnoughCoins')); return; }
   coins -= price; upgrades[id] += 1; persist(); refreshShop(); equipTool(currentToolId); showNotice(t('notice.upgradeComplete'));
@@ -2836,7 +3065,12 @@ function animate() {
   camera.rotation.x = pitch;
   // 현관문 자동 개폐: 문 근처(3.2m)에 오면 안쪽으로 스르륵 열림
   const doorDistance = Math.hypot(camera.position.x + 7.3, camera.position.z + 7.6);
-  const doorShouldOpen = doorDistance < 3.2;
+  const doorShouldOpen = isYardRegion() && doorDistance < 3.2;
+  // 하늘 돔·그림자 범위는 플레이어를 따라간다(넓은 지역에서도 발밑 그림자가 유지되도록).
+  skyDome.mesh.position.set(camera.position.x, 0, camera.position.z);
+  sun.target.position.set(camera.position.x, 0, camera.position.z);
+  sun.position.copy(sun.target.position).add(SUN_OFFSET);
+  currentWorld()?.update(clock.elapsedTime);
   if (doorShouldOpen && !doorIsOpen && gameStarted) playDoorSound();
   doorIsOpen = doorShouldOpen;
   const doorTarget = doorShouldOpen ? 1.95 : 0;
@@ -2879,13 +3113,18 @@ function animate() {
     const previousX = camera.position.x;
     const previousZ = camera.position.z;
     const step = 5.5 * (1 + upgrades.moveSpeed * 0.1) * delta;
-    let nextX = THREE.MathUtils.clamp(previousX + movement.x * step, -20, 20);
-    let nextZ = THREE.MathUtils.clamp(previousZ + movement.z * step, -16, 16);
+    const layout = regionLayouts[currentRegionId];
+    let nextX = THREE.MathUtils.clamp(previousX + movement.x * step, layout.minX, layout.maxX);
+    let nextZ = THREE.MathUtils.clamp(previousZ + movement.z * step, layout.minZ, layout.maxZ);
+    // 마당은 집 벽, 공원·해변은 연못·나무 줄기·놀이기구 같은 원형 충돌체가 막는다.
+    const colliders = currentWorld()?.colliders;
+    const blocked = (x: number, z: number) => (layout.yard && hitsWall(x, z, 0.3)) || hitsCollider(colliders, x, z, 0.3);
     // 벽 슬라이딩: 대각선으로 벽에 닿으면 막히는 축만 멈추고 나머지 축은 계속 이동 (문 개구부는 통과)
-    if (hitsWall(nextX, nextZ, 0.3)) {
-      if (!hitsWall(nextX, previousZ, 0.3)) nextZ = previousZ;      // z쪽 벽 → x축으로 미끄러짐
-      else if (!hitsWall(previousX, nextZ, 0.3)) nextX = previousX; // x쪽 벽 → z축으로 미끄러짐
-      else { nextX = previousX; nextZ = previousZ; }                // 모서리 등 둘 다 막힘 → 정지
+    // 이미 충돌체 안에 있으면(스폰 직후 등) 막지 않아 갇히지 않게 한다.
+    if (blocked(nextX, nextZ) && !blocked(previousX, previousZ)) {
+      if (!blocked(nextX, previousZ)) nextZ = previousZ;      // z쪽 벽 → x축으로 미끄러짐
+      else if (!blocked(previousX, nextZ)) nextX = previousX; // x쪽 벽 → z축으로 미끄러짐
+      else { nextX = previousX; nextZ = previousZ; }          // 모서리 등 둘 다 막힘 → 정지
     }
     camera.position.x = nextX;
     camera.position.z = nextZ;
@@ -2929,6 +3168,19 @@ function applyLocale() {
   updateToolHintUi(currentToolId);
   updateTutorialUI();
   refreshShop();
+}
+
+// 개발 서버 전용 점검 도구: 콘솔에서 지역 이동·시점 이동으로 맵을 확인한다(배포 빌드에는 없다).
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__ys = {
+    camera,
+    enterRegion: (id: RegionId) => { unlockedRegion = Math.max(unlockedRegion, id) as RegionId; enterRegion(id); },
+    look: (x: number, z: number, lookYaw: number, lookPitch = -0.05) => { camera.position.set(x, standingHeight, z); yaw = lookYaw; pitch = lookPitch; },
+    start: () => { assetsReady = true; startGame(); },
+    remaining: () => cleanables.filter((o) => !o.userData.cleaned).length,
+    clearAll: () => cleanables.filter((o) => !o.userData.cleaned).forEach(removeObject),
+    state: () => ({ region: currentRegionId, unlockedRegion, coins: Math.floor(coins), gems, missionProgress, bestCombo: stats.bestCombo }),
+  };
 }
 
 animate();
