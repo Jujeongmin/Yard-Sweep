@@ -665,6 +665,14 @@ button, input, select, textarea, kbd { font-family: inherit; }
     border-radius: 50%; background: rgba(18,42,55,.28);
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none;
   }
+  /* 왼쪽 화면 어디서나 이동: 투명 영역. 캔버스(시점 드래그)보다 위, 다른 UI(z 3+)보다 아래.
+     HUD·인벤토리와 겹치지 않게 위쪽 24%는 비운다. */
+  #joy-zone {
+    position: fixed; z-index: 2; left: 0; top: 24%; bottom: 0; width: 42%;
+    touch-action: none; -webkit-tap-highlight-color: transparent;
+  }
+  /* 조작 중엔 조이스틱 테두리를 진하게. 그림 위치는 왼쪽 아래 그대로, 손잡이만 방향을 보여 준다. */
+  #joystick.active { border-color: #fff; background: rgba(18,42,55,.42); }
   #joystick i {
     position: absolute;
     left: clamp(22px,4vw,25px); top: clamp(22px,4vw,25px);

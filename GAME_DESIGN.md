@@ -292,3 +292,15 @@
 - 상점 카드(업그레이드·지역·미션·업적·프리미엄·VX·랭킹)의 아이콘 27종은 `game/public/assets/card-icons/Yardsweep-Icon-<이름>.png`(160px, 투명)다. 버튼·HUD 안의 작은 단색 아이콘(`ui-icons/*.svg`, CSS mask)은 그대로 둔다.
 - 제작: Codex CLI 이미지 생성(`codex exec`, `image_generation` 기능)으로 3×3 시트 3장(흰 배경)을 만들고 `tools/icons/slice_icon_sheets.py`로 잘랐다. 배경은 시트 테두리에서 flood-fill로만 지워서 아이콘 안쪽 흰색(하이라이트 등)은 남는다.
 - 시트 공통 스타일 문구: chunky rounded shapes, bright saturated colors, thick dark navy (#142c3b) outline, soft cel shading with one highlight, no text, plain white background, 칸마다 20% 여백. 칸 순서는 스크립트의 `NAMES`와 같다.
+
+## 모바일 조작: 자동 청소 + 왼쪽 화면 이동 (2026-11-23)
+
+터치 기기(`(pointer: coarse)`)에만 적용한다. PC 조작은 그대로다.
+- **자동 청소** (`updateTouchAutoClean()`): 매 프레임 "청소 버튼을 누른 상태"만 대신 켜고 끈다. 대상 판정·속도·보상은 기존 `updateCleaning()` 그대로라 밸런스 변화가 없다.
+  - 켜지는 조건: 플레이 중(시작 후, 상점·설정·지역 완료 화면 아님) AND (청소 버튼을 누르고 있음 OR 도구가 이동 중 사용 가능 OR 조이스틱을 놓음).
+  - 기본 빗자루·곡괭이처럼 이동 중에 못 쓰는 도구는 조이스틱을 놓았을 때만 켜져, 걷다가 청소물 위에서 발이 묶이지 않는다.
+  - 청소 버튼은 "누르고 있으면 걸으면서도 계속 청소"용으로 남겼다(`cleanButtonHeld`). 일일 상자 열기는 자동이 아니다.
+- **왼쪽 화면 어디서나 이동**: 왼쪽 42%(위 24%는 HUD라 제외)에 투명한 `#joy-zone`. 처음 닿은 자리를 기준점으로 끄는 방향·거리만큼 걷는다. 조이스틱 그림은 왼쪽 아래 제자리, 조작 중엔 테두리가 진해진다(`.active`). 놓기·취소·캡처 해제에서 값을 0으로 되돌린다.
+- **조준 도움**: 시작 시점 pitch -0.4(조준 원이 앞 바닥 약 4.4m), 조준 원을 터치에서만 15% 크게.
+- 튜토리얼 모바일 문구와 청소 버튼 문구를 4개 언어 모두 새 조작에 맞게 바꿨다.
+- 참고 구현: `yard-sweep-crazygames` 포팅본, 문서 `docs/mobile-controls-guide.md`.

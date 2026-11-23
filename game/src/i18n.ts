@@ -90,7 +90,7 @@ const ko: Dict = {
   'start.subtitle': '클릭하여 마우스를 연결하세요',
   'start.tapToStart': '화면을 터치하여 시작',
 
-  'mobile.holdToClean': '길게 눌러 청소',
+  'mobile.holdToClean': '누르면 걸으며 청소',
 
   'shop.title': '마당 상점',
   'shop.owned': '보유 중',
@@ -229,8 +229,8 @@ const ko: Dict = {
   'tutorial.step3': 'Tab 키를 눌러 상점을 열어보세요',
   // 터치 기기에는 키보드도 마우스도 없다. 세 단계 모두 화면에 실제로 보이는
   // 조작(조이스틱·청소 버튼·상점 버튼)으로 바꿔 안내한다.
-  'tutorial.step1Mobile': '왼쪽 조이스틱으로 이동해보세요',
-  'tutorial.step2Mobile': '청소 버튼을 길게 눌러 낙엽을 청소하세요',
+  'tutorial.step1Mobile': '화면 왼쪽 아무 곳이나 누르고 끌어서 이동해보세요',
+  'tutorial.step2Mobile': '가운데 원을 낙엽에 맞추면 저절로 청소돼요',
   'tutorial.step3Mobile': '상점 버튼을 눌러 상점을 열어보세요',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': '튜토리얼 완료!',
@@ -340,7 +340,7 @@ const en: Dict = {
   'start.subtitle': 'Click to enable mouse look',
   'start.tapToStart': 'Tap to start',
 
-  'mobile.holdToClean': 'Hold to clean',
+  'mobile.holdToClean': 'Hold to clean on the move',
 
   'shop.title': 'Yard Shop',
   'shop.owned': 'Owned',
@@ -477,8 +477,8 @@ const en: Dict = {
   'tutorial.step1': 'Move around using W A S D keys',
   'tutorial.step2': 'Click to clean leaves',
   'tutorial.step3': 'Press Tab to open the shop',
-  'tutorial.step1Mobile': 'Move around with the left joystick',
-  'tutorial.step2Mobile': 'Hold the clean button to clean leaves',
+  'tutorial.step1Mobile': 'Touch anywhere on the left side and drag to move',
+  'tutorial.step2Mobile': 'Aim the circle at leaves to clean them automatically',
   'tutorial.step3Mobile': 'Tap the shop button to open the shop',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': 'Tutorial complete!',
@@ -588,7 +588,7 @@ const ja: Dict = {
   'start.subtitle': 'クリックしてマウス操作を有効化',
   'start.tapToStart': '画面をタップして開始',
 
-  'mobile.holdToClean': '長押しで掃除',
+  'mobile.holdToClean': '押すと歩きながら掃除',
 
   'shop.title': '庭のショップ',
   'shop.owned': '所持中',
@@ -725,8 +725,8 @@ const ja: Dict = {
   'tutorial.step1': 'WASDキーで移動してみましょう',
   'tutorial.step2': '左クリックで落ち葉を掃除しましょう',
   'tutorial.step3': 'Tabキーでショップを開いてみましょう',
-  'tutorial.step1Mobile': '左のスティックで移動してみましょう',
-  'tutorial.step2Mobile': '掃除ボタンを長押しして落ち葉を掃除しましょう',
+  'tutorial.step1Mobile': '画面の左側をどこでもタッチしてドラッグすると移動できます',
+  'tutorial.step2Mobile': '中央の円を落ち葉に合わせると自動で掃除します',
   'tutorial.step3Mobile': 'ショップボタンを押してショップを開きましょう',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': 'チュートリアル完了！',
@@ -836,7 +836,7 @@ const zhHant: Dict = {
   'start.subtitle': '點擊以啟用滑鼠視角',
   'start.tapToStart': '點擊畫面開始',
 
-  'mobile.holdToClean': '長按清掃',
+  'mobile.holdToClean': '按住邊走邊清掃',
 
   'shop.title': '庭院商店',
   'shop.owned': '已擁有',
@@ -973,8 +973,8 @@ const zhHant: Dict = {
   'tutorial.step1': '用 WASD 鍵移動看看',
   'tutorial.step2': '用左鍵清掃落葉',
   'tutorial.step3': '按 Tab 鍵開啟商店',
-  'tutorial.step1Mobile': '用左邊的搖桿移動看看',
-  'tutorial.step2Mobile': '長按清掃按鈕來清掃落葉',
+  'tutorial.step1Mobile': '在畫面左側任意處按住拖曳即可移動',
+  'tutorial.step2Mobile': '把中間的圓圈對準落葉就會自動清掃',
   'tutorial.step3Mobile': '按下商店按鈕開啟商店',
   'tutorial.progress': '{current} / {total}',
   'tutorial.complete': '教學完成！',

@@ -1276,6 +1276,9 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has('tooltune'))
 
 let yaw = 0;
 let pitch = -0.12;
+// 터치 시작 시점: 조준 원이 앞 바닥 약 4.4m(눈높이 1.85 / tan 0.4)에 닿게 살짝 내려다본다.
+// 자동 청소가 조준 원 기준이라, 정면을 보면 원 안에 청소물이 거의 안 들어온다.
+const TOUCH_START_PITCH = -0.4;
 const standingHeight = 1.85;
 type UpgradeId = 'cleanSpeed' | 'moveSpeed' | 'coinBonus' | 'radius';
 interface PlayerStats {
@@ -1975,7 +1978,8 @@ function updateToolHintUi(toolId: ToolId) {
   const tool = tools[toolId];
   const radiusBonus = 1 + upgrades.radius * 0.08;
   const ui = toolUi[toolId];
-  const uiSize = Math.round(ui.size * radiusBonus);
+  // 터치는 손가락 조준이 거칠어 조준 원(판정 범위)을 15% 키운다. PC는 그대로.
+  const uiSize = Math.round(ui.size * radiusBonus * (usesMobileControls() ? 1.15 : 1));
   radiusEl.className = `cleaning-radius tool-${toolId}`;
   radiusEl.style.width = `${uiSize}px`;
   radiusEl.style.height = `${uiSize}px`;
@@ -2326,7 +2330,7 @@ function startGame() {
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     yaw = 0;
-    pitch = -0.12;
+    pitch = TOUCH_START_PITCH;
   }
   playRegionBgm();
   refreshFullscreenBanner();
@@ -2624,13 +2628,32 @@ document.querySelectorAll<HTMLElement>('.slot').forEach((slot) => {
 });
 
 const cleanButton = document.querySelector<HTMLElement>('#clean-button')!;
+// 터치에서는 자동 청소(updateTouchAutoClean)가 기본이다. 버튼은 "걸으면서도 계속 청소"용으로 남기고,
+// 눌린 상태를 따로 기억해 자동 청소가 버튼 입력을 덮어쓰지 않게 한다.
+let cleanButtonHeld = false;
 cleanButton.addEventListener('pointerdown', (event) => {
   event.preventDefault();
   cleanButton.setPointerCapture(event.pointerId);
+  cleanButtonHeld = true;
   startCleaning();
 });
-cleanButton.addEventListener('pointerup', stopCleaning);
-cleanButton.addEventListener('pointercancel', stopCleaning);
+const releaseCleanButton = () => { cleanButtonHeld = false; stopCleaning(); };
+cleanButton.addEventListener('pointerup', releaseCleanButton);
+cleanButton.addEventListener('pointercancel', releaseCleanButton);
+cleanButton.addEventListener('lostpointercapture', () => { cleanButtonHeld = false; });
+
+// ── 터치 자동 청소 ──
+// 엄지 둘로 이동·시점·청소 버튼 셋을 동시에 다뤄야 했다. 조준 원 안에 치울 수 있는 게 있으면 버튼 없이 치운다.
+// "버튼을 누르고 있는 상태"만 대신 켜고 끄므로 대상 판정·속도·보상은 기존 updateCleaning 그대로다.
+// 이동 중에 못 쓰는 도구(기본 빗자루·곡괭이)는 조이스틱을 놓았을 때만 켠다 → 걷다가 청소물 위에서 발이 묶이지 않는다.
+function updateTouchAutoClean() {
+  if (!usesMobileControls()) return;
+  const playable = gameStarted && !shopOpen && !settingsOpen && !regionCompleted;
+  const moving = joystickX !== 0 || joystickY !== 0;
+  const want = playable && (cleanButtonHeld || tools[currentToolId].canMoveWhileCleaning || !moving);
+  if (want && !cleaningHeld) startCleaning();
+  else if (!want && cleaningHeld) stopCleaning();
+}
 
 // 각 도구의 획득 비용. basicBroom은 기본 보유(비용 없음). coins 또는 gems 중 하나.
 const toolCost: Record<ToolId, { coins?: number; gems?: number }> = {
@@ -3000,14 +3023,44 @@ joystick?.addEventListener('pointerdown', (event) => {
   joystickPointer = event.pointerId;
   joystick.setPointerCapture(event.pointerId);
 });
+// 손가락 위치 → 조이스틱 값(-1~1). 기준점을 주지 않으면 조이스틱 그림의 중심이 기준이다.
+function setJoystickFrom(clientX: number, clientY: number, originX?: number, originY?: number) {
+  if (!joystick) return;
+  const bounds = joystick.getBoundingClientRect();
+  const cx = originX ?? bounds.left + bounds.width / 2;
+  const cy = originY ?? bounds.top + bounds.height / 2;
+  joystickX = THREE.MathUtils.clamp((clientX - cx) / (bounds.width * 0.35), -1, 1);
+  joystickY = THREE.MathUtils.clamp((clientY - cy) / (bounds.height * 0.35), -1, 1);
+  if (joystickKnob) joystickKnob.style.transform = `translate(${joystickX * 26}px,${joystickY * 26}px)`;
+}
 joystick?.addEventListener('pointermove', (event) => {
   if (event.pointerId !== joystickPointer) return;
-  const bounds = joystick.getBoundingClientRect();
-  joystickX = THREE.MathUtils.clamp((event.clientX - (bounds.left + bounds.width / 2)) / (bounds.width * 0.35), -1, 1);
-  joystickY = THREE.MathUtils.clamp((event.clientY - (bounds.top + bounds.height / 2)) / (bounds.height * 0.35), -1, 1);
-  if (joystickKnob) joystickKnob.style.transform = `translate(${joystickX * 26}px,${joystickY * 26}px)`;
+  setJoystickFrom(event.clientX, event.clientY);
 });
+// 왼쪽 화면 어디서나 이동: 엄지가 처음 닿은 자리를 기준점으로, 끄는 방향·거리만큼 걷는다(상대 입력).
+// 조이스틱 그림은 왼쪽 아래 제자리에 두고 손잡이로 방향만 보여 준다.
+const joyZone = document.querySelector<HTMLElement>('#joy-zone');
+let joyOriginX = 0;
+let joyOriginY = 0;
+joyZone?.addEventListener('pointerdown', (event) => {
+  if (!joystick || joystickPointer !== undefined) return;
+  event.preventDefault();
+  joystickPointer = event.pointerId;
+  joyOriginX = event.clientX;
+  joyOriginY = event.clientY;
+  joyZone.setPointerCapture(event.pointerId); // 손가락이 영역 밖으로 나가도 계속 받는다
+  joystick.classList.add('active');
+});
+joyZone?.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== joystickPointer) return;
+  setJoystickFrom(event.clientX, event.clientY, joyOriginX, joyOriginY);
+});
+// 놓기·취소·캡처 해제 모두에서 0으로: 입력이 남아 계속 걷는 버그 방지
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
+  joyZone?.addEventListener(type, (event) => { if (event.pointerId === joystickPointer) resetJoystick(); });
+}
 function resetJoystick() {
+  joystick?.classList.remove('active');
   joystickPointer = undefined;
   joystickX = joystickY = 0;
   if (joystickKnob) joystickKnob.style.transform = '';
@@ -3174,6 +3227,7 @@ function animate() {
   } else {
     interactHintEl.classList.add('hidden');
   }
+  updateTouchAutoClean();
   updateCleaning(delta);
   updateTargetHint(delta);
   updateRobotVacuum(delta);
