@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { kitAdd, kitCommit } from './sceneryKit';
 
 // 플레이 공간 밖(울타리 너머)과 공원·해변 지역을 코드 도형으로 만든다.
 // 바깥 장식은 이동·스폰에 관여하지 않는 순수 배경이고, 지역 월드 안쪽 구조물만
@@ -84,42 +85,22 @@ function pick<T>(list: T[]) { return list[Math.floor(rand() * list.length)]; }
 const wallColors = [0xffd6a5, 0xa8d8ff, 0xfff1a8, 0xffc4d6, 0xc8f0b8, 0xe2d4ff, 0xffe0c2];
 const roofColors = [0xe76f51, 0x5b8bd9, 0xf4a259, 0xe85f8a, 0x2a9d8f, 0x9b6fd6];
 
-// 장난감 같은 이웃집: 몸통·삼각 지붕·문·창문·굴뚝. 앞면이 그룹의 +z를 본다.
+// 이웃집: Blender 키트 house_<형태 0~2><색 0~3>. 앞면(문)이 앵커의 +z를 본다.
+// 돌려준 앵커를 옮기면(해변의 고상 가옥처럼) 그 위치로 그려진다. 앵커에 자식을 붙여도 된다.
 function toyHouse(parent: THREE.Object3D, x: number, z: number, rotY: number, scale = 1) {
-  const house = new THREE.Group();
-  house.position.set(x, 0, z);
-  house.rotation.y = rotY;
-  house.scale.setScalar(scale);
-  const w = 6 + rand() * 2.5;
-  const d = 5 + rand() * 1.5;
-  const h = 3.4 + rand() * 1.4;
-  const wall = mat(pick(wallColors));
-  place(house, unitBox, wall, [0, h / 2, 0], [w, h, d], { shadow: true, receive: true });
-  const roofH = 1.8 + rand() * 0.8;
-  place(house, roofGeometry(w + 0.7, roofH, d + 0.7), mat(pick(roofColors), 0.7), [0, h, 0], [1, 1, 1], { shadow: true });
-  place(house, unitBox, mat(0x8a5a33), [w * 0.18, 1.05, d / 2 + 0.03], [1, 2.1, 0.08]);
-  const glass = mat(0x83cceb, 0.3);
-  const frame = mat(0xf7f2e6);
-  for (const wx of [-w * 0.28, w * 0.42]) {
-    if (Math.abs(wx - w * 0.18) < 1.2) continue;
-    place(house, unitBox, frame, [wx, h * 0.6, d / 2 + 0.03], [1.25, 1.15, 0.06]);
-    place(house, unitBox, glass, [wx, h * 0.6, d / 2 + 0.07], [1, 0.9, 0.04]);
-  }
-  if (rand() < 0.6) place(house, unitBox, mat(0xb0563a), [-w * 0.3, h + roofH * 0.7, 0], [0.7, 1.4, 0.7]);
-  parent.add(house);
-  return house;
+  const name = `house_${Math.floor(rand() * 3)}${Math.floor(rand() * 4)}`;
+  return kitAdd(parent, name, [x, 0, z], rotY, scale * (0.92 + rand() * 0.16), { shadow: true });
 }
 
-// 둥근 활엽수(수관 1~2덩어리) / 원뿔 침엽수. 바깥 배경용이라 그림자는 끈다.
+// 나무: Blender 키트. crownColor는 키트 원래 색에 아주 약하게만 섞어(밝기 변화) 단조로움을 줄인다.
+// s=1일 때 높이 약 5m(예전 코드 나무와 같은 비율).
 function roundTree(parent: THREE.Object3D, x: number, z: number, s: number, crownColor: number, shadow = false) {
-  place(parent, unitCylinder, mat(0x85532f, 1), [x, 1.4 * s, z], [0.3 * s, 2.8 * s, 0.3 * s], { shadow });
-  place(parent, unitIco, mat(crownColor, 1, true), [x, 3.6 * s, z], [1.8 * s, 1.6 * s, 1.8 * s], { shadow });
-  if (s > 0.9) place(parent, unitIco, mat(crownColor, 1, true), [x + 0.7 * s, 3.1 * s, z + 0.5 * s], [1.1 * s, 1 * s, 1.1 * s], { shadow });
+  const variant = rand() < 0.12 ? 'treeBlossom_0' : `treeRound_${Math.floor(rand() * 3)}`;
+  const tint = new THREE.Color(crownColor).lerp(new THREE.Color(0xffffff), 0.82);
+  kitAdd(parent, variant, [x, 0, z], rand() * Math.PI * 2, s, { shadow, tint });
 }
-function pineTree(parent: THREE.Object3D, x: number, z: number, s: number, color: number) {
-  place(parent, unitCylinder, mat(0x7a4d2c, 1), [x, 0.8 * s, z], [0.25 * s, 1.6 * s, 0.25 * s]);
-  place(parent, unitCone, mat(color, 1, true), [x, 2.6 * s, z], [1.5 * s, 2.8 * s, 1.5 * s]);
-  place(parent, unitCone, mat(color, 1, true), [x, 3.9 * s, z], [1.05 * s, 2.1 * s, 1.05 * s]);
+function pineTree(parent: THREE.Object3D, x: number, z: number, s: number, _color: number) {
+  kitAdd(parent, `treePine_${Math.floor(rand() * 2)}`, [x, 0, z], rand() * Math.PI * 2, s);
 }
 
 // 지평선 쪽 완만한 언덕 띠. 안개에 거의 묻혀 실루엣만 남는다.
@@ -194,7 +175,7 @@ export function buildYardSurroundings(low: boolean) {
     else roundTree(group, x, z, 0.9 + rand() * 0.6, pick(greens));
   }
   // 뒤 울타리와 이웃집 사이 생울타리
-  for (let x = -22; x <= 22; x += 2.2) place(group, unitIco, mat(0x4f913f, 1, true), [x, 0.6, -19.4], [1.3, 0.85, 0.9]);
+  for (let x = -22; x <= 22; x += 2.2) kitAdd(group, 'hedge_0', [x, 0, -19.4], (rand() - 0.5) * 0.3, [1.4, 1.15, 1.2]);
   const hillMaterial = new THREE.MeshStandardMaterial({ color: 0x7fb85a, roughness: 1, flatShading: true });
   hillRing(group, hillMaterial, 95, low ? 10 : 16);
 
@@ -204,6 +185,7 @@ export function buildYardSurroundings(low: boolean) {
   }
   // 바깥 바닥은 지역 테마마다 색을 바꾸므로 캐시 재료가 아닌 전용 재료를 쓴다.
   outerGround.material = new THREE.MeshStandardMaterial({ color: 0x6aa944, roughness: 1 });
+  kitCommit(group);
   return { group, recolor };
 }
 
@@ -350,20 +332,20 @@ export function buildParkWorld(low: boolean): RegionWorld {
     spawnAvoid.push([tx, tz, 1.4 * s]);
   }
 
-  // 경계: 생울타리 + 철제 울타리(길 끝은 열어 둔다)
-  const hedge = mat(0x3f8a3a, 0.9, true);
-  for (let x = -31.5; x <= 31.5; x += 2.1) {
-    for (const z of [-25.6, 25.6]) {
-      if (Math.abs(x) < 3) continue;
-      place(group, unitIco, hedge, [x, 0.55, z], [1.2, 0.8, 0.9], { receive: true });
-    }
-  }
-  for (let z = -25.6; z <= 25.6; z += 2.1) {
-    for (const x of [-32, 32]) {
-      if (Math.abs(z - 9) < 3) continue;
-      place(group, unitIco, hedge, [x, 0.55, z], [0.9, 0.8, 1.2], { receive: true });
-    }
-  }
+  // 경계: 반듯하게 깎은 상자형 생울타리 + 철제 울타리(길 끝은 열어 둔다).
+  // 예전엔 둥근 덩어리를 이어 붙여, 바로 안쪽에 생기는 덤불 청소물과 구분이 안 됐다. 벽처럼 보이게 각지게 깎는다.
+  const hedge = mat(0x2f7a3a, 0.95);
+  const hedgeTop = mat(0x4a9a48, 0.95);
+  const hedgeRun = (x0: number, z0: number, x1: number, z1: number) => {
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const ry = Math.atan2(x1 - x0, z1 - z0);
+    const cx = (x0 + x1) / 2;
+    const cz = (z0 + z1) / 2;
+    place(group, unitBox, hedge, [cx, 0.6, cz], [0.9, 1.2, len], { ry, receive: true });
+    place(group, unitBox, hedgeTop, [cx, 1.23, cz], [0.95, 0.06, len + 0.05], { ry });
+  };
+  for (const z of [-25.6, 25.6]) { hedgeRun(-32.5, z, -3, z); hedgeRun(3, z, 32.5, z); }
+  for (const x of [-32, 32]) { hedgeRun(x, -25.6, x, 6); hedgeRun(x, 12, x, 25.6); }
   const iron = mat(0x2f3b4a, 0.5, false, 0.4);
   for (let x = -33; x <= 33; x += 1.6) {
     for (const z of [-26.8, 26.8]) if (Math.abs(x) > 3) place(group, unitBox, iron, [x, 0.8, z], [0.08, 1.6, 0.08]);
@@ -415,6 +397,7 @@ export function buildParkWorld(low: boolean): RegionWorld {
     });
     seats.forEach((seat, i) => { seat.rotation.x = Math.sin(time * 1.4 + i * 1.7) * 0.28; });
   }
+  kitCommit(group);
   return { group, colliders, spawnAvoid, anchors: { benches, pond: [[pondX, pondZ]] }, update };
 }
 
@@ -451,32 +434,12 @@ export function buildBeachWorld(low: boolean): RegionWorld {
     for (const px of [20.6, 23.4]) place(group, unitCylinder, mat(0x8a5a33), [px, -0.4, z], [0.18, 1.6, 0.18]);
   }
 
-  // 야자수: 휘어진 줄기 마디 + 늘어진 잎 + 코코넛
-  const trunkMat = mat(0xb07a45, 0.9);
-  const frondMat = mat(0x4caf50, 0.8, true);
+  // 야자수: Blender 키트 palm_0(휘어진 줄기 + 잎 7장 + 코코넛)
   const palms: Array<[number, number, number]> = [
     [-16, 14, 1.1], [-6, 17, 1], [7, 16, 1.15], [17, 13, 1], [27, 17, 1.1], [-26, 16, 1], [12, 3, 0.95], [-12, 4, 0.9],
   ];
   for (const [px, pz, s] of palms) {
-    const palm = new THREE.Group();
-    palm.position.set(px, 0, pz);
-    palm.rotation.y = rand() * Math.PI * 2;
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < 6; i++) {
-      place(palm, unitCylinder, trunkMat, [x, y + 0.45 * s, 0], [0.24 * s * (1 - i * 0.06), 0.95 * s, 0.24 * s * (1 - i * 0.06)], { rz: -0.08 * i, shadow: true });
-      x += 0.08 * i * s;
-      y += 0.88 * s;
-    }
-    for (let i = 0; i < 7; i++) {
-      const frond = new THREE.Group();
-      frond.position.set(x, y, 0);
-      frond.rotation.y = (i / 7) * Math.PI * 2;
-      place(frond, unitBox, frondMat, [1.1 * s, -0.25 * s, 0], [2.4 * s, 0.06, 0.55 * s], { rz: -0.45, shadow: true });
-      palm.add(frond);
-    }
-    for (let i = 0; i < 3; i++) place(palm, unitSphere, mat(0x6b4426), [x + Math.cos(i * 2.1) * 0.25, y - 0.25, Math.sin(i * 2.1) * 0.25], [0.18, 0.18, 0.18]);
-    group.add(palm);
+    kitAdd(group, 'palm_0', [px, 0, pz], rand() * Math.PI * 2, s, { shadow: true });
     colliders.push([px, pz, 0.45 * s]);
     spawnAvoid.push([px, pz, 1.2 * s]);
   }
@@ -609,5 +572,6 @@ export function buildBeachWorld(low: boolean): RegionWorld {
       boat.rotation.z = Math.sin(time * 1.1 + i * 2) * 0.05;
     });
   }
+  kitCommit(group);
   return { group, colliders, spawnAvoid, anchors: { umbrellas }, update };
 }

@@ -26,6 +26,29 @@ function normalizeCollectionCount(result: unknown): number {
   throw new Error('Invalid collection count response.');
 }
 
+// ── 랭킹 규칙 ──────────────────────────────────────────────────────────────────
+// 경험치는 청소한 오브젝트 1개당 1(main.ts getLevelInfo). 여러 개를 동시에 치우는 도구·로봇청소기를
+// 다 써도 초당 10개를 넘기 어렵다. 오프라인으로 쌓인 몫은 시간이 지나며 따라잡도록 여유를 둔다.
+const MAX_LEVEL = 9999;
+const SCORE_PER_SECOND = 10;
+const SCORE_BURST = 400;
+const NICKNAME_MAX = 15;
+const TOP_LIMIT = 20;
+const RANK_SCAN_LIMIT = 100;
+const rankingLockKey = (account: string) => `ranking:${account}`;
+
+interface RankingEntry {
+  __id: string;
+  account: string;
+  nickname: string;
+  level: number;
+  exp: number;
+  score: number;
+  updatedAt: number;
+  createdAt: number;
+}
+interface PublicRankingEntry { nickname: string; level: number; exp: number; score: number; isMe: boolean }
+
 export class Server {
   private ALLOWED_PRODUCTS: Record<string, (state: any, qty: number) => any> = {
     'gems-100': (state, qty) => ({ crystals: (Number(state.crystals) || 0) + 100 * qty }),
@@ -207,11 +230,22 @@ export class Server {
   }
 
   async setNickname(nickname: string): Promise<string> {
-    if (typeof nickname !== 'string' || nickname.length < 1 || nickname.length > 15) {
-      throw new Error('Nickname must be between 1 and 15 characters.');
+    // 공백만 넣은 이름이 빈 이름으로 저장되지 않도록 다듬은 뒤에 길이를 잰다.
+    const trimmed = typeof nickname === 'string' ? nickname.trim() : '';
+    if (trimmed.length < 1 || trimmed.length > NICKNAME_MAX) {
+      throw new Error(`Nickname must be between 1 and ${NICKNAME_MAX} characters.`);
     }
-    await $global.updateMyState({ nickname: nickname.trim() });
-    return nickname.trim();
+    const state = await $global.getMyState();
+    // 첫 등록 점수 상한(updatePlayerStats)의 기준 시각. 이름을 바꿔도 처음 값을 유지한다.
+    await $global.updateMyState({ nickname: trimmed, rankingSince: Number(state.rankingSince) || Date.now() });
+    // 랭킹 행의 이름도 바로 바꾼다. 예전엔 다음 레벨업(오브젝트 100개)까지 옛 이름이 남았다.
+    await $lock(rankingLockKey($sender.account), async () => {
+      const rows = await this.myRankingRows();
+      for (const row of rows) {
+        await $global.updateCollectionItem('rankings', { ...row, nickname: trimmed });
+      }
+    });
+    return trimmed;
   }
 
   async getMyNickname(): Promise<string | null> {
@@ -219,55 +253,65 @@ export class Server {
     return state.nickname || null;
   }
 
-  async updatePlayerStats(
-    level: number,
-    exp: number,
-  ): Promise<{ __id: string; account: string; nickname: string; level: number; exp: number; score: number }> {
+  // 랭킹 점수 등록. 클라이언트가 보낸 값은 믿지 않는다:
+  //  - level/exp는 정수, level 1~MAX_LEVEL, exp 0~99만 받는다.
+  //  - 점수는 직전 기록 시점부터 흐른 시간만큼만 오를 수 있다(SCORE_PER_SECOND, 여유 SCORE_BURST).
+  //    더 높게 보내면 거절하지 않고 허용치까지만 올린다. 정상 플레이어는 다음 전송 때 따라잡는다.
+  //  - 읽고-비교하고-쓰는 구간을 $lock으로 묶어, 두 탭/기기가 동시에 보내도 행이 하나만 생긴다.
+  async updatePlayerStats(level: number, exp: number): Promise<RankingEntry> {
+    if (!Number.isInteger(level) || level < 1 || level > MAX_LEVEL) {
+      throw new Error(`Level must be an integer between 1 and ${MAX_LEVEL}.`);
+    }
+    if (!Number.isInteger(exp) || exp < 0 || exp >= 100) {
+      throw new Error('Exp must be an integer between 0 and 99.');
+    }
     const myState = await $global.getMyState();
     const nickname = myState.nickname;
     if (!nickname) {
       throw new Error('Please set your nickname first.');
     }
-    if (typeof level !== 'number' || level < 1) {
-      throw new Error('Level must be at least 1.');
-    }
-    if (typeof exp !== 'number' || exp < 0 || exp >= 100) {
-      throw new Error('Exp must be between 0 and 99.');
-    }
+    const account = $sender.account;
+    return $lock(rankingLockKey(account), async () => {
+      const now = Date.now();
+      const rows = await this.myRankingRows();
+      // 예전 버그(잠금 없음)로 생긴 중복 행은 최고 점수 하나만 남기고 지운다.
+      rows.sort((x, y) => (Number(y.score) || 0) - (Number(x.score) || 0));
+      const existing = rows[0];
+      for (const duplicate of rows.slice(1)) await $global.deleteCollectionItem('rankings', duplicate.__id);
 
-    const score = (level - 1) * 100 + exp;
+      const claimed = (level - 1) * 100 + exp;
+      const previousScore = existing ? Number(existing.score) || 0 : 0;
+      // 첫 등록은 닉네임을 정한 시점부터 잰다(기록이 없으면 지금 → 허용치는 SCORE_BURST).
+      const since = existing ? Number(existing.updatedAt) || now : Number(myState.rankingSince) || now;
+      const allowed = previousScore + SCORE_BURST + (Math.max(0, now - since) / 1000) * SCORE_PER_SECOND;
+      // 오래된 클라이언트가 더 낮은 점수를 보내도 최고 기록은 유지한다.
+      const score = Math.max(previousScore, Math.min(claimed, Math.floor(allowed)));
+      const entry: RankingEntry = {
+        __id: existing?.__id ?? account,
+        account,
+        nickname,
+        level: Math.floor(score / 100) + 1,
+        exp: score % 100,
+        score,
+        updatedAt: now,
+        createdAt: Number(existing?.createdAt) || now,
+      };
+      if (existing) {
+        await $global.updateCollectionItem('rankings', entry);
+      } else {
+        // __id를 계정으로 고정해 실서버(1.x)에서는 같은 계정이 행 하나로 upsert된다.
+        const created = await $global.addCollectionItem('rankings', entry);
+        entry.__id = (created as { __id?: string } | null)?.__id ?? entry.__id;
+      }
+      return entry;
+    });
+  }
 
-    const existingEntries = await $global.getCollectionItems('rankings', {
+  private async myRankingRows(): Promise<RankingEntry[]> {
+    const rows = await $global.getCollectionItems('rankings', {
       filters: [{ field: 'account', operator: '==', value: $sender.account }],
     });
-
-    const entry = {
-      account: $sender.account,
-      nickname,
-      level,
-      exp,
-      score,
-      updatedAt: Date.now(),
-    };
-
-    if (existingEntries.length > 0) {
-      const existing = existingEntries[0];
-      // A stale client must not overwrite a player's higher leaderboard score.
-      const bestEntry = Number(existing.score) > score
-        ? { level: existing.level, exp: existing.exp, score: existing.score }
-        : { level, exp, score };
-      const updated = await $global.updateCollectionItem(
-        'rankings',
-        { ...entry, ...bestEntry, __id: existing.__id },
-      );
-      return updated as any;
-    } else {
-      const created = await $global.addCollectionItem('rankings', {
-        ...entry,
-        createdAt: Date.now(),
-      });
-      return created as any;
-    }
+    return Array.isArray(rows) ? (rows as RankingEntry[]) : [];
   }
 
   // 게임 진행 세이브를 계정 상태($global.getMyState)에 통째로 저장한다.
@@ -304,52 +348,54 @@ export class Server {
     for (const entry of myRankings) {
       await $global.deleteCollectionItem('rankings', entry.__id);
     }
-    await $global.updateMyState({ nickname: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null, adClaimedRequests: null, lastGemRewardAt: null });
+    await $global.updateMyState({ nickname: null, rankingSince: null, gameSave: null, gameSaveAt: null, crystals: null, adRemoved: null, vxProcessedPurchases: null, adClaimedRequests: null, lastGemRewardAt: null });
     return { success: true };
   }
 
-  // countCollectionItems의 응답 형태가 런타임마다 달라 파싱에 실패하는 일이 있었다
-  // ("Invalid collection count response."). 그러면 getMyRank 전체가 던지고,
-  // 클라이언트의 Promise.all이 함께 무너져 랭킹이 아예 안 뜬다.
-  // 파싱이 안 되면 실제 행을 가져와 세는 쪽으로 물러선다.
-  private async countRankings(filters: any[]): Promise<number> {
+  // 나보다 점수가 높은 행 수. countCollectionItems 응답 형태가 런타임마다 달라 파싱이 실패할 때가 있어
+  // ("Invalid collection count response."), 그때는 상위 100행을 받아 직접 센다.
+  // getCollectionItems는 한 번에 최대 100행이라, 100위 밖이면 정확한 순위 대신 "100위 밖"으로 알린다.
+  private async countHigherScores(myScore: number): Promise<{ higher: number; lowerBound: boolean }> {
     try {
-      return normalizeCollectionCount(
-        await $global.countCollectionItems('rankings', { filters }),
+      const count = normalizeCollectionCount(
+        await $global.countCollectionItems('rankings', { filters: [{ field: 'score', operator: '>', value: myScore }] }),
       );
+      return { higher: count, lowerBound: false };
     } catch {
-      const items = await $global.getCollectionItems('rankings', { filters, limit: 1000 });
-      return Array.isArray(items) ? items.length : 0;
+      const top = await $global.getCollectionItems('rankings', {
+        orderBy: [{ field: 'score', direction: 'desc' }],
+        limit: RANK_SCAN_LIMIT,
+      });
+      const list = Array.isArray(top) ? top : [];
+      const higher = list.filter((row: any) => (Number(row.score) || 0) > myScore).length;
+      return { higher, lowerBound: higher >= RANK_SCAN_LIMIT };
     }
   }
 
-  async getTopRankings(): Promise<any[]> {
-    return await $global.getCollectionItems('rankings', {
+  // 공개 목록에는 다른 플레이어의 계정 ID를 싣지 않는다. 내 행인지는 isMe로만 알린다.
+  async getTopRankings(): Promise<PublicRankingEntry[]> {
+    const rows = await $global.getCollectionItems('rankings', {
       orderBy: [{ field: 'score', direction: 'desc' }],
-      limit: 20,
+      limit: TOP_LIMIT,
     });
+    return (Array.isArray(rows) ? rows : []).map((row: any) => ({
+      nickname: String(row.nickname ?? ''),
+      level: Number(row.level) || 1,
+      exp: Number(row.exp) || 0,
+      score: Number(row.score) || 0,
+      isMe: row.account === $sender.account,
+    }));
   }
 
-  async getMyRank(): Promise<{
-    entry: any | null;
-    rank: number;
-  }> {
-    const myEntries = await $global.getCollectionItems('rankings', {
-      filters: [{ field: 'account', operator: '==', value: $sender.account }],
-    });
-
-    if (myEntries.length === 0) {
+  // 순위 = 나보다 점수가 높은 사람 수 + 1(동점은 같은 순위). 클라이언트 목록도 같은 규칙으로 매긴다.
+  async getMyRank(): Promise<{ entry: RankingEntry | null; rank: number; rankIsLowerBound?: boolean }> {
+    const rows = await this.myRankingRows();
+    if (rows.length === 0) {
       return { entry: null, rank: -1 };
     }
-
-    const myEntry = myEntries[0];
-
-    // getTopRankings가 score 내림차순으로 정렬하므로 순위도 score 하나로 센다.
-    // 예전에는 level/exp 두 번을 세어 정렬 기준과 어긋날 여지가 있었다.
+    const myEntry = rows.reduce((best, row) => ((Number(row.score) || 0) > (Number(best.score) || 0) ? row : best));
     const myScore = Number(myEntry.score) || 0;
-    const rank = await this.countRankings([
-      { field: 'score', operator: '>', value: myScore },
-    ]) + 1;
-    return { entry: myEntry, rank };
+    const { higher, lowerBound } = await this.countHigherScores(myScore);
+    return { entry: myEntry, rank: higher + 1, rankIsLowerBound: lowerBound };
   }
 }

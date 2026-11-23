@@ -23,11 +23,12 @@ import { initRanking, isConnected, syncStats, loadRankings, prefetchRankings, ge
 import { showRewardAd, isAdBusy } from './ads';
 import { claimAdFreeGemReward } from './ranking';
 import toolModelFitData from './toolModelFit.json';
+import { kitAdd, kitClear, kitCommit, kitTintAll, setSceneryKit } from './sceneryKit';
 import { buildBeachWorld, buildParkWorld, buildYardSurroundings, createSkyDome, type Circle, type RegionWorld } from './scenery';
 import './style.css';
 
 type Cleanable = THREE.Group & {
-  userData: { kind: ObjectKind; cleaned?: boolean; progress: number };
+  userData: { kind: ObjectKind; cleaned?: boolean; progress: number; floorY?: number };
 };
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
@@ -49,10 +50,14 @@ const cameraBaseZ = matchMedia('(pointer: coarse)').matches ? 13 : 11;
 camera.position.set(0, 1.85, cameraBaseZ);
 scene.add(camera);
 
-scene.add(new THREE.HemisphereLight(0xc6efff, 0x5f7b32, 2.2));
-const sun = new THREE.DirectionalLight(0xfff2cd, 3.2);
+// 하늘빛(위)·잔디 반사광(아래). 아래쪽을 따뜻한 연두로 두면 그늘이 칙칙한 회색이 되지 않는다.
+scene.add(new THREE.HemisphereLight(0xcdeeff, 0x7a8f45, 2.1));
+const sun = new THREE.DirectionalLight(0xffeac4, 3.35); // 살짝 노을 쪽으로 기운 오후 햇빛
 sun.position.set(-10, 18, 8);
 sun.castShadow = true;
+// 풍경 키트·청소물은 플랫 셰이딩 로우폴리라 면이 그림자 맵과 비스듬히 만나는 곳에 줄무늬(acne)가 생긴다.
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
 sun.shadow.mapSize.set(isTouchDevice() ? 1024 : 2048, isTouchDevice() ? 1024 : 2048);
 sun.shadow.camera.left = -24; sun.shadow.camera.right = 24;
 sun.shadow.camera.top = 24; sun.shadow.camera.bottom = -24;
@@ -181,43 +186,16 @@ for (let x = -21; x <= 21; x += 2.1) {
 const treeSpecs: Array<[number, number, number]> = [[13, -10, 1.15], [17, 3, 0.9], [-17, 4, 1]];
 const treeGroup = new THREE.Group();
 yardWorld.add(treeGroup);
-// 수관 블롭 오프셋(x, y, z, 크기 배율): 품질이 높을수록 여러 덩어리를 겹쳐 풍성하게
-const crownBlobOffsets: Array<[number, number, number, number]> = [
-  [0, 0, 0, 1],
-  [0.9, -0.5, 0.55, 0.62],
-  [-0.85, -0.45, -0.5, 0.58],
-  [0.15, 0.75, -0.7, 0.55],
-];
-function disposeGroup(group: THREE.Group) {
-  group.traverse((child) => {
-    if (child instanceof THREE.Mesh) {
-      child.geometry.dispose();
-      (Array.isArray(child.material) ? child.material : [child.material]).forEach((material) => material.dispose());
-    }
+// 마당 큰 나무: 풍경 키트 treeRound(그림자 O). 품질과 무관하게 같은 모델이라 한 번만 깐다.
+// 예전 코드 나무는 꼭대기가 약 6.3×scale이라 키트(약 5.2m)에 1.2배를 곱한다.
+let treesBuilt = false;
+function buildTrees() {
+  if (treesBuilt) return;
+  treesBuilt = true;
+  treeSpecs.forEach(([x, z, scale], i) => {
+    kitAdd(treeGroup, `treeRound_${i % 3}`, [x, 0, z], i * 1.7, scale * 1.2, { shadow: true });
   });
-  group.clear();
-}
-function buildTrees(quality: GraphicsQuality) {
-  const preset = graphicsPresets[quality];
-  disposeGroup(treeGroup);
-  for (const [x, z, scale] of treeSpecs) {
-    const trunk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28 * scale, 0.4 * scale, 3.2 * scale, preset.trunkSegments),
-      new THREE.MeshStandardMaterial({ color: 0x85532f }),
-    );
-    trunk.position.set(x, 1.6 * scale, z);
-    trunk.castShadow = true;
-    treeGroup.add(trunk);
-    for (const [bx, by, bz, bs] of crownBlobOffsets.slice(0, preset.crownBlobs)) {
-      const crown = new THREE.Mesh(
-        new THREE.IcosahedronGeometry(2 * scale * bs, preset.crownDetail),
-        new THREE.MeshStandardMaterial({ color: 0x6eae35, flatShading: true }),
-      );
-      crown.position.set(x + bx * scale, (4.3 + by) * scale, z + bz * scale);
-      crown.castShadow = true;
-      treeGroup.add(crown);
-    }
-  }
+  kitCommit(treeGroup);
 }
 
 // 배경 소품(구름): 품질별 개수만큼 시드 고정 랜덤 배치 (품질 바꿔도 같은 자리)
@@ -225,41 +203,30 @@ const backgroundGroup = new THREE.Group();
 scene.add(backgroundGroup);
 function buildBackgroundDetail(quality: GraphicsQuality) {
   const preset = graphicsPresets[quality];
-  disposeGroup(backgroundGroup);
+  kitClear(backgroundGroup); // 키트 구름은 공유 geometry라 dispose하지 않고 인스턴스만 지운다
   let seed = 20260709;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < preset.cloudCount; i += 1) {
-    const cloud = new THREE.Group();
-    const puffMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
-    const puffs = 3 + Math.floor(rand() * 2);
-    for (let p = 0; p < puffs; p += 1) {
-      const puff = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1 + rand() * 1.2, 1), puffMaterial);
-      puff.position.set(p * 1.6 - puffs * 0.8, rand() * 0.5, rand() * 0.8);
-      cloud.add(puff);
-    }
-    cloud.position.set((rand() - 0.5) * 46, 13.5 + rand() * 3.5, (rand() - 0.5) * 36);
-    backgroundGroup.add(cloud);
+    kitAdd(backgroundGroup, `cloud_${i % 3}`, [(rand() - 0.5) * 46, 12 + rand() * 3.5, (rand() - 0.5) * 36], rand() * Math.PI, 0.9 + rand() * 0.4);
   }
+  kitCommit(backgroundGroup);
 }
 
-// 그래픽 품질 프리셋: 배경 폴리곤 디테일 + 소품 개수 + 그림자 해상도 + 렌더 픽셀비율
+// 그래픽 품질 프리셋: 구름 개수 + 그림자 해상도 + 렌더 픽셀비율 (나무는 풍경 키트라 품질과 무관)
 type GraphicsQuality = 'low' | 'medium' | 'high';
 interface GraphicsPreset {
-  crownDetail: number;
-  crownBlobs: number;
-  trunkSegments: number;
   cloudCount: number;
   shadowMapSize: number;
   pixelRatio: number;
 }
 const graphicsPresets: Record<GraphicsQuality, GraphicsPreset> = {
-  low: { crownDetail: 1, crownBlobs: 1, trunkSegments: 7, cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
-  medium: { crownDetail: 2, crownBlobs: 2, trunkSegments: 10, cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
-  high: { crownDetail: 2, crownBlobs: 4, trunkSegments: 16, cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
+  low: { cloudCount: 0, shadowMapSize: 1024, pixelRatio: 1.25 },
+  medium: { cloudCount: 3, shadowMapSize: 2048, pixelRatio: 1.5 },
+  high: { cloudCount: 5, shadowMapSize: 4096, pixelRatio: 2 },
 };
 function applyGraphicsQuality(quality: GraphicsQuality) {
   const preset = graphicsPresets[quality];
-  buildTrees(quality);
+  buildTrees();
   buildBackgroundDetail(quality);
   sun.shadow.mapSize.set(preset.shadowMapSize, preset.shadowMapSize);
   sun.shadow.map?.dispose();
@@ -386,75 +353,29 @@ function hitsCollider(list: Circle[] | undefined, x: number, z: number, padding:
   return !!list?.some(([cx, cz, r]) => Math.hypot(x - cx, z - cz) < r + padding);
 }
 
-function flowerCluster(x: number, z: number, color: number) {
-  const group = new THREE.Group();
-  const stem = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.03, 0.03, 0.4, 5),
-    new THREE.MeshStandardMaterial({ color: 0x3f7a2f }),
-  );
-  stem.position.y = 0.2;
-  group.add(stem);
-  for (let i = 0; i < 5; i++) {
-    const angle = (i / 5) * Math.PI * 2;
-    const petal = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 6, 5),
-      new THREE.MeshStandardMaterial({ color, roughness: 0.6 }),
-    );
-    petal.position.set(Math.cos(angle) * 0.15, 0.42, Math.sin(angle) * 0.15);
-    group.add(petal);
-  }
-  const center = new THREE.Mesh(
-    new THREE.SphereGeometry(0.09, 6, 5),
-    new THREE.MeshStandardMaterial({ color: 0xffd23f }),
-  );
-  center.position.y = 0.42;
-  group.add(center);
-  group.position.set(x, 0, z);
-  group.castShadow = true;
-  return group;
-}
-
 const gardenDecor = new THREE.Group();
-const flowerColors = [0xe85f8a, 0xf2b6d4, 0x9b6fd6, 0xf7e14a];
-for (let i = 0; i < (isTouchDevice() ? 18 : 36); i++) {
+// 꽃·생울타리: 풍경 키트 flowers_0~3(분홍/연분홍/보라/노랑), hedge_0
+// 청소 못 하는 장식이라 시야를 가리지 않게 적게, 무릎 높이로만 둔다.
+for (let i = 0; i < (isTouchDevice() ? 9 : 16); i++) {
   const [x, z] = randomDecorPosition();
-  gardenDecor.add(flowerCluster(x, z, flowerColors[Math.floor(Math.random() * flowerColors.length)]));
+  kitAdd(gardenDecor, `flowers_${Math.floor(Math.random() * 4)}`, [x, 0, z], Math.random() * Math.PI * 2, 0.9 + Math.random() * 0.25);
   addDecorObstacle(2, x, z, 0.8);
 }
-for (const side of [-1, 1]) {
-  for (let z = -16; z <= 16; z += (isTouchDevice() ? 4.8 : 3.2)) {
-    const hedge = new THREE.Mesh(
-      new THREE.SphereGeometry(0.55, 7, 6),
-      new THREE.MeshStandardMaterial({ color: 0x3f8a3a, flatShading: true, roughness: 0.9 }),
-    );
-    hedge.position.set(side * 4.3, 0.5, z);
-    hedge.castShadow = hedge.receiveShadow = true;
-    gardenDecor.add(hedge);
-    addDecorObstacle(2, side * 4.3, z, 0.9);
-  }
-}
+// 산책로 옆 생울타리는 덤불 청소물과 똑같아 보여 뺐다(청소 못 하는 장식은 플레이 영역에 두지 않는다).
+kitCommit(gardenDecor);
 gardenDecor.visible = false;
 yardWorld.add(gardenDecor);
 
 // Flat stepping-stone slabs: a dry rock-garden look that reads clearly differently from the
 // small round dodecahedron "stone" cleanable objects.
-function slabStone(x: number, z: number) {
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.9 + Math.random() * 0.4, 0.12, 0.6 + Math.random() * 0.3),
-    new THREE.MeshStandardMaterial({ color: 0x9a9188, roughness: 1 }),
-  );
-  mesh.position.set(x, 0.06, z);
-  mesh.rotation.y = Math.random() * Math.PI;
-  mesh.castShadow = mesh.receiveShadow = true;
-  return mesh;
-}
-
 const stoneDecor = new THREE.Group();
 for (let i = 0; i < (isTouchDevice() ? 9 : 18); i++) {
   const [x, z] = randomDecorPosition();
-  stoneDecor.add(slabStone(x, z));
+  // 청소물 돌(회색 덩어리)과 헷갈리지 않게 납작하고 밝은 베이지 디딤돌로 깐다.
+  kitAdd(stoneDecor, `slab_${i % 2}`, [x, 0, z], Math.random() * Math.PI, [1.1, 0.5, 1.1], { tint: 0xfff0d0 });
   addDecorObstacle(3, x, z, 0.8);
 }
+kitCommit(stoneDecor);
 stoneDecor.visible = false;
 yardWorld.add(stoneDecor);
 
@@ -463,12 +384,12 @@ yardWorld.add(stoneDecor);
 // does not alter movement or cleanable spawn positions.
 const perimeterDecor = new THREE.Group();
 const fenceMaterial = new THREE.MeshStandardMaterial({ color: 0xd7b37a, roughness: 0.95 });
-const perimeterTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x785037, roughness: 1 });
-const perimeterFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x4f913f, flatShading: true, roughness: 1 });
+// 울타리 주변 관목·나무는 키트 인스턴스. 지역 테마 색은 kitTintAll로 곱해 바꾼다.
+const perimeterFoliage = new THREE.Group();
+perimeterDecor.add(perimeterFoliage);
 const fencePostGeometry = new THREE.BoxGeometry(0.22, 1.5, 0.22);
 const sideRailGeometry = new THREE.BoxGeometry(0.14, 0.14, 3.05);
 const frontRailGeometry = new THREE.BoxGeometry(3.05, 0.14, 0.14);
-const shrubGeometry = new THREE.IcosahedronGeometry(0.72, 1);
 
 function addFencePost(x: number, z: number) {
   const post = new THREE.Mesh(fencePostGeometry, fenceMaterial);
@@ -487,26 +408,11 @@ function addFenceRails(x: number, z: number, side: boolean) {
 }
 
 function addPerimeterShrub(x: number, z: number, scale = 1) {
-  const shrub = new THREE.Mesh(shrubGeometry, perimeterFoliageMaterial);
-  shrub.position.set(x, 0.48 * scale, z);
-  shrub.scale.set(1.15 * scale, 0.7 * scale, scale);
-  shrub.castShadow = shrub.receiveShadow = true;
-  perimeterDecor.add(shrub);
+  kitAdd(perimeterFoliage, 'shrub_0', [x, 0, z], Math.random() * Math.PI, scale, { shadow: true });
 }
 
 function addPerimeterTree(x: number, z: number, scale: number) {
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.22 * scale, 0.32 * scale, 2.6 * scale, 7),
-    perimeterTrunkMaterial,
-  );
-  trunk.position.set(x, 1.3 * scale, z);
-  trunk.castShadow = true;
-  perimeterDecor.add(trunk);
-  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.35 * scale, 1), perimeterFoliageMaterial);
-  crown.position.set(x, 3.25 * scale, z);
-  crown.scale.y = 0.9;
-  crown.castShadow = true;
-  perimeterDecor.add(crown);
+  kitAdd(perimeterFoliage, `treeRound_${Math.floor(Math.random() * 3)}`, [x, 0, z], Math.random() * Math.PI * 2, scale * 0.85, { shadow: true });
 }
 
 for (const x of [-21.25, 21.25]) {
@@ -527,12 +433,14 @@ for (const [x, z, scale] of [
   [-19, 18.4, 0.9], [-13, 18.7, 1.1], [-7, 18.5, 0.85],
   [7, 18.5, 0.9], [13, 18.7, 1.05], [19, 18.4, 0.88],
 ] as Array<[number, number, number]>) addPerimeterTree(x, z, scale);
+kitCommit(perimeterFoliage);
 yardWorld.add(perimeterDecor);
 
+// 키트 원래 색에 곱하는 배율: 1 앞마당 그대로, 2 정원 짙은 초록, 3 돌 정원 마른 올리브빛.
 const perimeterFoliageColors: Record<1 | 2 | 3, number> = {
-  1: 0x4f913f,
-  2: 0x347b43,
-  3: 0x746f4c,
+  1: 0xffffff,
+  2: 0xb8dcc0,
+  3: 0xe0c890,
 };
 
 function applyRegionTheme(regionId: RegionId) {
@@ -549,7 +457,7 @@ function applyRegionTheme(regionId: RegionId) {
   yardSurroundings.recolor(theme.outer, theme.hill);
   gardenDecor.visible = regionId === 2;
   stoneDecor.visible = regionId === 3;
-  perimeterFoliageMaterial.color.setHex(perimeterFoliageColors[regionId as 1 | 2 | 3]);
+  kitTintAll(perimeterFoliage, perimeterFoliageColors[regionId as 1 | 2 | 3]);
 }
 
 function cleanableGroup(kind: ObjectKind, x: number, z: number): Cleanable {
@@ -619,11 +527,73 @@ function buildFlatLeaf(group: THREE.Group) {
   group.add(mesh);
 }
 
+// ── Blender로 만든 청소 오브젝트 모델 (tools/blender/build_cleanables.py → Yardsweep-Cleanables.glb) ──
+// GLB 하나에 "<kind>_<variant>" 노드가 들어 있다. 노드마다 메시 1개(+유리/금속 부분만 추가 primitive),
+// 색은 버텍스 컬러, 재질은 파일 전체에서 5개(Matte/Shiny/Glass/GoldGlow/GemGlow)만 공유한다.
+// 원점은 바닥 중심이라 그룹 y = 바닥 높이. geometry·material은 전부 공유 리소스라 dispose하지 않는다.
+// 모델 로드 전에 생성된 오브젝트는 아래 legacy 코드 모양으로 만들어지고, 로드 후 upgradeCleanableVisuals()가 교체한다.
+const CLEANABLES_PATH = '/assets/Yardsweep-Cleanables.glb';
+const SCENERY_KIT_PATH = '/assets/Yardsweep-Scenery.glb';
+const GROUND_Y = 0.02;
+const cleanableModels = new Map<ObjectKind, THREE.Object3D[]>();
+// 종류별 크기 흔들림 [최소, 최대]. 같은 모델 반복이 덜 티 나게.
+const cleanableScale: Partial<Record<ObjectKind, [number, number]>> = {
+  leaf: [0.5, 0.85], grass: [0.85, 1.15], stone: [0.85, 1.15], bush: [0.9, 1.1], seaweed: [0.85, 1.15], boulder: [0.9, 1.1],
+};
+// 발치의 작은 것들은 그림자를 꺼서 섀도우 패스 비용을 아낀다.
+const noShadowKinds = new Set<ObjectKind>(['grass', 'seaweed']);
+function attachCleanableModel(group: Cleanable) {
+  const variants = cleanableModels.get(group.userData.kind);
+  if (!variants) return false;
+  const model = variants[Math.floor(Math.random() * variants.length)].clone(true);
+  const [min, max] = cleanableScale[group.userData.kind] ?? [0.95, 1.05];
+  model.scale.setScalar(min + Math.random() * (max - min));
+  const shadow = !noShadowKinds.has(group.userData.kind);
+  model.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = shadow; });
+  group.add(model);
+  group.position.y = group.userData.floorY ?? GROUND_Y;
+  group.rotation.set(0, Math.random() * Math.PI * 2, 0);
+  return true;
+}
+function createModelCleanable(kind: ObjectKind, x: number, z: number) {
+  if (!cleanableModels.has(kind)) return false;
+  attachCleanableModel(cleanableGroup(kind, x, z));
+  return true;
+}
+function loadCleanableModels() {
+  return loadModelScene(CLEANABLES_PATH).then(async (source) => {
+    await renderer.compileAsync(source, camera);
+    registerSharedResources(source);
+    cleanableModels.clear();
+    for (const child of source.children) {
+      const kind = child.name.split('_')[0] as ObjectKind;
+      if (!(kind in objects)) continue;
+      // 노드 자체 위치는 원점이어야 하지만, 혹시 몰라 복제본 기준점을 0으로 맞춘다.
+      const prototype = child.clone(true);
+      prototype.position.set(0, 0, 0);
+      const list = cleanableModels.get(kind) ?? [];
+      list.push(prototype);
+      cleanableModels.set(kind, list);
+    }
+  });
+}
+// 모델 로드 전에 legacy 모양으로 놓인 오브젝트를 모델로 바꾼다(그룹 유지: 진행도·위치 보존).
+function upgradeCleanableVisuals() {
+  if (cleanableModels.size === 0) return;
+  for (const object of cleanables) {
+    if (object.userData.cleaned || !cleanableModels.has(object.userData.kind)) continue;
+    clearVisual(object);
+    attachCleanableModel(object);
+  }
+}
+
 function createLeaf(x: number, z: number) {
+  if (createModelCleanable('leaf', x, z)) return;
   buildFlatLeaf(cleanableGroup('leaf', x, z));
 }
 
 function createCan(x: number, z: number) {
+  if (createModelCleanable('can', x, z)) return;
   const group = cleanableGroup('can', x, z);
   group.position.y = 0.18;
   group.rotation.y = Math.random() * Math.PI;
@@ -644,6 +614,7 @@ function createCan(x: number, z: number) {
 }
 
 function createGoldCan(x: number, z: number) {
+  if (createModelCleanable('goldCan', x, z)) return;
   const group = cleanableGroup('goldCan', x, z);
   group.position.y = 0.2;
   group.rotation.y = Math.random() * Math.PI;
@@ -662,6 +633,7 @@ function createGoldCan(x: number, z: number) {
 }
 
 function createChest(kind: 'goldChest' | 'gemChest', x: number, z: number) {
+  if (createModelCleanable(kind, x, z)) return;
   const group = cleanableGroup(kind, x, z);
   group.position.y = 0.28;
   group.rotation.y = Math.random() * Math.PI * 2;
@@ -691,12 +663,7 @@ function createChest(kind: 'goldChest' | 'gemChest', x: number, z: number) {
   group.add(lock);
 }
 
-// 잔디는 고사리 GLB 3종을 무작위로 쓴다. populateRegion이 동기로 50개를 만들기 때문에
-// 로드된 씬을 여기에 따로 보관해 clone만 한다(로드 전이면 아래 평면 잔디로 폴백).
-const FERN_PATHS = ['/assets/Fern-0.glb', '/assets/Fern-1.glb', '/assets/Fern-2.glb'];
-const FERN_HEIGHT = 0.85; // 월드 높이로 정규화 — 원본 3종의 크기가 제각각이라 맞춰준다
-const fernPrototypes: THREE.Group[] = [];
-
+// 잔디 폴백(모델 로드 전): 평면 잎 5장. 로드 후 upgradeCleanableVisuals()가 모델로 교체한다.
 function buildBladeGrass(group: THREE.Group) {
   const material = new THREE.MeshStandardMaterial({ color: 0x3f9c35, side: THREE.DoubleSide });
   for (let i = 0; i < 5; i++) {
@@ -729,31 +696,13 @@ function clearVisual(group: THREE.Object3D) {
   group.clear();
 }
 
-function attachGrassVisual(group: THREE.Group) {
-  if (fernPrototypes.length === 0) { buildBladeGrass(group); return; }
-  const fern = fernPrototypes[Math.floor(Math.random() * fernPrototypes.length)].clone(true);
-  // 같은 모델이 반복돼도 심어놓은 티가 덜 나도록 방향·크기를 조금씩 흔든다.
-  fern.rotation.y = Math.random() * Math.PI * 2;
-  fern.scale.multiplyScalar(0.85 + Math.random() * 0.3);
-  group.add(fern);
-}
-
 function createGrass(x: number, z: number) {
-  attachGrassVisual(cleanableGroup('grass', x, z));
-}
-
-// enterRegion()이 에셋 프리로드보다 먼저 돌기 때문에, 첫 진입 시 잔디는 평면 폴백으로 생성된다.
-// 고사리 로드가 끝나면 이미 놓인 잔디의 겉모습만 갈아끼운다(그룹은 유지 — 청소 진행도·위치 보존).
-function upgradeGrassVisuals() {
-  if (fernPrototypes.length === 0) return;
-  for (const object of cleanables) {
-    if (object.userData.kind !== 'grass' || object.userData.cleaned) continue;
-    clearVisual(object);
-    attachGrassVisual(object);
-  }
+  if (createModelCleanable('grass', x, z)) return;
+  buildBladeGrass(cleanableGroup('grass', x, z));
 }
 
 function createStone(x: number, z: number) {
+  if (createModelCleanable('stone', x, z)) return;
   const group = cleanableGroup('stone', x, z);
   group.position.y = 0.22;
   const stone = new THREE.Mesh(
@@ -766,6 +715,7 @@ function createStone(x: number, z: number) {
 }
 
 function createGoldStone(x: number, z: number) {
+  if (createModelCleanable('goldStone', x, z)) return;
   const group = cleanableGroup('goldStone', x, z);
   group.position.y = 0.3;
   const stone = new THREE.Mesh(
@@ -779,6 +729,7 @@ function createGoldStone(x: number, z: number) {
 
 // ── 공원·해변 전용 청소물 ──
 function createTrashBag(x: number, z: number) {
+  if (createModelCleanable('trashBag', x, z)) return;
   const group = cleanableGroup('trashBag', x, z);
   group.position.y = 0.02;
   group.rotation.y = Math.random() * Math.PI * 2;
@@ -800,6 +751,7 @@ function createTrashBag(x: number, z: number) {
 }
 
 function createBottle(x: number, z: number) {
+  if (createModelCleanable('bottle', x, z)) return;
   const group = cleanableGroup('bottle', x, z);
   group.position.y = 0.12;
   group.rotation.y = Math.random() * Math.PI * 2;
@@ -819,6 +771,7 @@ function createBottle(x: number, z: number) {
 }
 
 function createBush(x: number, z: number) {
+  if (createModelCleanable('bush', x, z)) return;
   const group = cleanableGroup('bush', x, z);
   group.position.y = 0;
   const leafMaterial = new THREE.MeshStandardMaterial({ color: 0x4a9a3a, flatShading: true, roughness: 0.9 });
@@ -838,6 +791,7 @@ function createBush(x: number, z: number) {
 }
 
 function createSeaweed(x: number, z: number) {
+  if (createModelCleanable('seaweed', x, z)) return;
   const group = cleanableGroup('seaweed', x, z);
   group.position.y = 0.02;
   group.rotation.y = Math.random() * Math.PI * 2;
@@ -855,6 +809,7 @@ function createSeaweed(x: number, z: number) {
 }
 
 function createBoulder(x: number, z: number) {
+  if (createModelCleanable('boulder', x, z)) return;
   const group = cleanableGroup('boulder', x, z);
   group.position.y = 0.42;
   group.rotation.y = Math.random() * Math.PI * 2;
@@ -968,7 +923,7 @@ function populateRegion(regionId: RegionId, state: RegionProgressState) {
     return;
   }
   // 집 안 오브젝트는 실내 바닥(윗면 y≈0.06) 위에 앉도록 마지막 생성물의 y를 올린다.
-  const liftLastIntoHouse = () => { cleanables[cleanables.length - 1].position.y = 0.11; };
+  const liftLastIntoHouse = () => { const last = cleanables[cleanables.length - 1]; last.userData.floorY = 0.11; last.position.y = 0.11; };
   for (let i = 0; i < (counts.leaf ?? 0); i++) {
     if (i < HOUSE_LEAF) { createLeaf(...randomHousePosition()); liftLastIntoHouse(); } // 처음 몇 개는 집 안에
     else createLeaf(...randomOpenPosition());
@@ -1775,28 +1730,12 @@ async function prepareGameAssets() {
     ...allAudio.map(preloadAudio),
     // 현재 지역 BGM 1곡만. 나머지 2곡은 해당 지역 진입 시 playRegionBgm()이 받는다.
     preloadAudio(bgmTracks[bgmIndexFor(currentRegionId)]),
-    ...FERN_PATHS.map(async (path) => {
-      const source = await loadModelScene(path);
-      await renderer.compileAsync(source, camera);
-      // 원본 3종의 크기·중심이 제각각이라 밑동이 바닥(y=0)에 오고 높이가 같아지도록 맞춘다.
-      // GLB 루트의 자체 변환을 덮어쓰지 않도록 래퍼 두 겹(정렬용/스케일용)으로 감싼다.
-      const inner = source.clone(true);
-      const bounds = new THREE.Box3().setFromObject(inner);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const scale = FERN_HEIGHT / Math.max(size.y, 0.001);
-      const offset = new THREE.Group();
-      offset.add(inner);
-      offset.position.set(-center.x, -bounds.min.y, -center.z);
-      const prototype = new THREE.Group();
-      prototype.add(offset);
-      prototype.scale.setScalar(scale);
-      // 그림자는 끈다. 지역당 50개 × 약 6천 정점이라 켜면 섀도우 패스에서 같은 양을 한 번 더
-      // 그리게 되는데, 발치의 작은 식물이라 얻는 게 거의 없다(이전 평면 잔디도 꺼져 있었다).
-      prototype.traverse((child) => { if (child instanceof THREE.Mesh) child.castShadow = false; });
-      registerSharedResources(prototype);
-      fernPrototypes.push(prototype);
-    }),
+    loadCleanableModels(),
+    // 풍경 키트: 실패하면 같은 이름의 단순 도형 키트로 깐다(지형·집이 통째로 비지 않게).
+    loadModelScene(SCENERY_KIT_PATH).then(
+      async (source) => { await renderer.compileAsync(source, camera); registerSharedResources(source); setSceneryKit(source); },
+      () => setSceneryKit(null),
+    ),
   ];
   let completed = 0;
   loadingProgress.style.width = '2%';
@@ -1805,7 +1744,7 @@ async function prepareGameAssets() {
     completed += 1;
     loadingProgress.style.width = `${Math.max(2, Math.round((completed / tasks.length) * 100))}%`;
   }));
-  upgradeGrassVisuals();
+  upgradeCleanableVisuals();
   renderer.compile(scene, camera);
   renderer.render(scene, camera);
   loadingProgress.style.width = '100%';
@@ -1940,13 +1879,20 @@ function getLevelInfo() {
   return { level, progressPercent };
 }
 
-// 랭킹 갱신은 레벨이 바뀔 때만 보낸다. updateHud()는 오브젝트를 하나 치울 때마다 도는데
-// 거기서 매번 전송하면 서버 호출이 과해져 10분 스로틀을 걸어야 했고, 그 탓에 레벨업 직후
-// 랭킹을 열어도 옛 점수가 보였다. 레벨업은 100개당 1회라 즉시 보내도 부담이 없다.
+// 랭킹 갱신: 레벨이 바뀌면 즉시, 경험치만 바뀌었으면 30초에 한 번 보낸다.
+// updateHud()는 오브젝트를 하나 치울 때마다 돌아서 매번 보내면 서버 호출이 과하다.
+// 예전엔 레벨업 때만 보내서 랭킹의 XP가 늘 0 근처였고, 같은 레벨끼리는 진행도와 상관없이 동점이 됐다.
+const EXP_SYNC_INTERVAL = 30000;
 let lastSyncedLevel = -1;
+let lastSyncedExp = -1;
+let lastExpSyncAt = 0;
 function reportScoreToPlatform(level: number, expProgress: number) {
-  if (level === lastSyncedLevel) return;
+  const now = performance.now();
+  const levelChanged = level !== lastSyncedLevel;
+  if (!levelChanged && (expProgress === lastSyncedExp || now - lastExpSyncAt < EXP_SYNC_INTERVAL)) return;
   lastSyncedLevel = level;
+  lastSyncedExp = expProgress;
+  lastExpSyncAt = now;
   syncStats(level, expProgress);
 }
 
@@ -2025,6 +1971,7 @@ function checkMissionsAndAchievements() {
 }
 
 function updateToolHintUi(toolId: ToolId) {
+  wrongToolHint = null;
   const tool = tools[toolId];
   const radiusBonus = 1 + upgrades.radius * 0.08;
   const ui = toolUi[toolId];
@@ -2040,6 +1987,35 @@ function updateToolHintUi(toolId: ToolId) {
   toolIcon.alt = '';
   radiusLabel.append(toolIcon, document.createTextNode(` ${t(tool.name)}`));
 }
+// 지금 도구로는 못 치우는 청소물(예: 빗자루로 잔디)을 겨누면 반응이 없어 "청소가 되는 건가?" 헷갈렸다.
+// 범위 안에 청소물이 있는데 지금 도구로 치울 수 있는 게 하나도 없으면, 필요한 도구를 원 아래 라벨로 알린다.
+let wrongToolHint: ToolId | null = null;
+let targetHintTimer = 0;
+function updateTargetHint(delta: number) {
+  targetHintTimer += delta;
+  if (targetHintTimer < 0.12) return; // 화면 투영 검사라 매 프레임 돌릴 필요는 없다
+  targetHintTimer = 0;
+  const tool = tools[currentToolId];
+  const inRange = objectsInRadius();
+  let need: ToolId | null = null;
+  let needCategory: CategoryId | null = null;
+  if (inRange.length > 0 && !inRange.some((object) => tool.validTargets.includes(object.userData.kind))) {
+    const kind = inRange[0].userData.kind;
+    needCategory = categoryOrder.find((id) => categories[id].tools.some((toolId) => tools[toolId].validTargets.includes(kind))) ?? null;
+    if (needCategory) need = equippedByCategory[needCategory] ?? categories[needCategory].tools[0];
+  }
+  if (need === wrongToolHint) return;
+  if (!need || !needCategory) { updateToolHintUi(currentToolId); return; }
+  wrongToolHint = need;
+  radiusEl.classList.add('wrong-tool');
+  const label = radiusEl.querySelector('span')!;
+  const icon = document.createElement('img');
+  icon.className = 'tool-image-icon';
+  icon.src = toolImage[need];
+  icon.alt = '';
+  label.replaceChildren(icon, document.createTextNode(` ${t('hint.needTool', { tool: t(tools[need].name), n: needCategory })}`));
+}
+
 // 인벤토리 3슬롯(카테고리)의 아이콘/라벨/활성 표시 갱신
 function refreshInventoryBar() {
   categoryOrder.forEach((catId) => {
@@ -2474,7 +2450,8 @@ async function grantGemAdReward() {
 }
 
 function updateGemAdBtn() {
-  gemAdGlyph.innerHTML = uiIcon(adsRemoved ? 'gem' : 'video');
+  // 광고 제거 구매자는 광고 없이 받으므로 TV 대신 보석 더미 아이콘
+  gemAdGlyph.innerHTML = `<img src="/assets/card-icons/Yardsweep-Icon-${adsRemoved ? 'gems' : 'ad-gems'}.png" alt="" />`;
   gemAdTitle.textContent = t(adsRemoved ? 'ad.gemAd.adFreeTitle' : 'ad.gemAd.title');
   gemAdDesc.textContent = t(adsRemoved ? 'ad.gemAd.adFreeDesc' : 'ad.gemAd.desc');
   const remaining = GEM_AD_COOLDOWN - (Date.now() - lastGemAdTime);
@@ -3128,6 +3105,8 @@ const rankingReady = initRanking().then(async () => {
   // 내 순위가 계속 "-"로 뜨고, 아무도 레벨업하지 않은 동안엔 상위 목록도 비어 보였다.
   const { level, progressPercent } = getLevelInfo();
   lastSyncedLevel = level;
+  lastSyncedExp = progressPercent;
+  lastExpSyncAt = performance.now();
   await syncStats(level, progressPercent);
   // 랭킹을 미리 받아 캐시해둔다. 탭을 열면 로딩 없이 바로 뜨고 뒤에서 조용히 갱신된다.
   // 아래 클라우드 세이브 동기화를 기다릴 필요가 없어 병렬로 먼저 띄운다.
@@ -3196,6 +3175,7 @@ function animate() {
     interactHintEl.classList.add('hidden');
   }
   updateCleaning(delta);
+  updateTargetHint(delta);
   updateRobotVacuum(delta);
   updateRobotVacuumVisual();
   updateCoinBoostBadge();
@@ -3275,6 +3255,8 @@ function applyLocale() {
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__ys = {
     camera,
+    renderer, // 누수 측정: __ys.renderer.info.memory
+
     enterRegion: (id: RegionId) => { unlockedRegion = Math.max(unlockedRegion, id) as RegionId; enterRegion(id); },
     look: (x: number, z: number, lookYaw: number, lookPitch = -0.05) => { camera.position.set(x, standingHeight, z); yaw = lookYaw; pitch = lookPitch; },
     start: () => { assetsReady = true; startGame(); },

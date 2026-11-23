@@ -276,3 +276,19 @@
 - 제작: Verse8 `image_asset_generate`로 로우폴리 카툰 원화 → `static_3d_generate`(Tripo h3.1 image-to-3d) → 텍스처를 baseColor 512px JPEG 1장만 남기고 metal 0 / roughness 0.75로 고정. Tripo의 metal/roughness·normal 텍스처는 노이즈라 버렸다. 원본은 하나에 2048² 3장(GPU 약 64MB)이었다.
 - Tripo 결과는 원화 각도대로 기울어져 나온다. `canonicalToolBasis()`가 정점 주축으로 긴 축=Y(작업부 −Y), 넓은 축=X로 맞춘다. 작업부 자동 판정이 틀리면 `flip`.
 - 손에 쥔 자세값은 `game/src/toolModelFit.json`. 개발 서버에서 `http://localhost:5173/?tooltune`을 열어 슬라이더로 맞추고 "저장"을 누르면 이 파일에 바로 써진다(`vite.config.ts`의 `tooltune-save` 플러그인, 개발 서버 전용).
+
+## Blender 키트: 청소 오브젝트·풍경 (2026-11-23)
+
+- Blender 5.2를 헤드리스로 돌려 절차적으로 만든다. 스크립트는 `tools/blender/`(공용 헬퍼 `kit_common.py`).
+  - `blender --background --factory-startup --python tools/blender/build_cleanables.py -- game/public/assets/Yardsweep-Cleanables.glb [미리보기.png]`
+  - `blender --background --factory-startup --python tools/blender/build_scenery.py -- game/public/assets/Yardsweep-Scenery.glb [미리보기.png]`
+- 규칙: 미터, 바닥 중심 원점, 정면 = three.js +Z, 면별 버텍스 컬러(텍스처 없음), 재질은 Matte/Shiny/Glass/GoldGlow/GemGlow만 공유. 노드 이름 `<종류>_<변형>`.
+- 청소 오브젝트 13종(변형 24개, 228KB): `attachCleanableModel()`이 공유 geometry/material을 clone해서 쓴다. 모델 로드 전에 생긴 오브젝트는 예전 코드 모양으로 만들어졌다가 `upgradeCleanableVisuals()`가 교체한다. 고사리 스캔 GLB 3개(약 1MB)는 새 잔디 모델로 대체해 삭제했다.
+- 풍경 키트(집 3형태×4색, 나무 6종, 야자수, 생울타리, 관목, 꽃 4색, 디딤돌, 구름): `sceneryKit.ts`의 `kitAdd`/`kitCommit`로 배치를 모았다가 InstancedMesh로 한 번에 그린다. 키트 로드가 실패하면 같은 이름의 단순 도형으로 깐다. 지역 테마 수관 색은 `kitTintAll`(instanceColor 곱).
+- 누수 측정(개발 서버 콘솔): `__ys.renderer.info.memory`를 보면서 `__ys.enterRegion(4)` 등으로 지역을 여러 바퀴 돌린다. 2026-11-23 기준 geometry 286 / texture 3 / program 34에서 고정.
+
+## 상점 카드 아이콘 (2026-11-23)
+
+- 상점 카드(업그레이드·지역·미션·업적·프리미엄·VX·랭킹)의 아이콘 27종은 `game/public/assets/card-icons/Yardsweep-Icon-<이름>.png`(160px, 투명)다. 버튼·HUD 안의 작은 단색 아이콘(`ui-icons/*.svg`, CSS mask)은 그대로 둔다.
+- 제작: Codex CLI 이미지 생성(`codex exec`, `image_generation` 기능)으로 3×3 시트 3장(흰 배경)을 만들고 `tools/icons/slice_icon_sheets.py`로 잘랐다. 배경은 시트 테두리에서 flood-fill로만 지워서 아이콘 안쪽 흰색(하이라이트 등)은 남는다.
+- 시트 공통 스타일 문구: chunky rounded shapes, bright saturated colors, thick dark navy (#142c3b) outline, soft cel shading with one highlight, no text, plain white background, 칸마다 20% 여백. 칸 순서는 스크립트의 `NAMES`와 같다.

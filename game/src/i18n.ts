@@ -65,6 +65,7 @@ const ko: Dict = {
   'loading.assets': '게임 리소스 불러오는 중...',
   'loading.ready': '준비 완료!',
   'label.cleaningItem': '{label} 청소 중',
+  'hint.needTool': '{tool} 필요 · {n}번',
 
   'aria.shop': '상점',
   'aria.settings': '설정',
@@ -163,6 +164,10 @@ const ko: Dict = {
   'ranking.noConnection': '서버에 연결되지 않았습니다.',
   'ranking.loadError': '랭킹을 불러오지 못했습니다.',
   'ranking.serverNotConnected': '서버 연결 안됨',
+  'ranking.retry': '다시 연결',
+  'ranking.outsideTop': '100위 밖',
+  'settings.nicknameLength': '닉네임은 1~15자로 입력해주세요.',
+  'settings.nicknameError': '닉네임을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.',
 
   'settings.title': '설정',
   'settings.nickname': '닉네임',
@@ -310,6 +315,7 @@ const en: Dict = {
   'loading.assets': 'Loading game assets...',
   'loading.ready': 'Ready!',
   'label.cleaningItem': 'Cleaning {label}',
+  'hint.needTool': 'Needs {tool} · slot {n}',
 
   'aria.shop': 'Shop',
   'aria.settings': 'Settings',
@@ -408,6 +414,10 @@ const en: Dict = {
   'ranking.noConnection': 'Not connected to server.',
   'ranking.loadError': 'Failed to load rankings.',
   'ranking.serverNotConnected': 'Server not connected',
+  'ranking.retry': 'Reconnect',
+  'ranking.outsideTop': 'Outside top 100',
+  'settings.nicknameLength': 'Nicknames must be 1–15 characters.',
+  'settings.nicknameError': 'Could not save your nickname. Please try again shortly.',
 
   'settings.title': 'Settings',
   'settings.nickname': 'Nickname',
@@ -553,6 +563,7 @@ const ja: Dict = {
   'loading.assets': 'ゲームデータを読み込み中...',
   'loading.ready': '準備完了！',
   'label.cleaningItem': '{label}を掃除中',
+  'hint.needTool': '{tool}が必要 · {n}番',
 
   'aria.shop': 'ショップ',
   'aria.settings': '設定',
@@ -651,6 +662,10 @@ const ja: Dict = {
   'ranking.noConnection': 'サーバーに接続されていません。',
   'ranking.loadError': 'ランキングを読み込めませんでした。',
   'ranking.serverNotConnected': 'サーバー未接続',
+  'ranking.retry': '再接続',
+  'ranking.outsideTop': '100位圏外',
+  'settings.nicknameLength': 'ニックネームは1〜15文字で入力してください。',
+  'settings.nicknameError': 'ニックネームを保存できませんでした。しばらくしてからもう一度お試しください。',
 
   'settings.title': '設定',
   'settings.nickname': 'ニックネーム',
@@ -796,6 +811,7 @@ const zhHant: Dict = {
   'loading.assets': '正在載入遊戲資源...',
   'loading.ready': '準備完成！',
   'label.cleaningItem': '正在清掃{label}',
+  'hint.needTool': '需要{tool} · {n}號',
 
   'aria.shop': '商店',
   'aria.settings': '設定',
@@ -894,6 +910,10 @@ const zhHant: Dict = {
   'ranking.noConnection': '尚未連線至伺服器。',
   'ranking.loadError': '無法載入排行榜。',
   'ranking.serverNotConnected': '伺服器未連線',
+  'ranking.retry': '重新連線',
+  'ranking.outsideTop': '100名以外',
+  'settings.nicknameLength': '暱稱請輸入 1～15 個字。',
+  'settings.nicknameError': '無法儲存暱稱，請稍後再試。',
 
   'settings.title': '設定',
   'settings.nickname': '暱稱',

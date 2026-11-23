@@ -97,22 +97,51 @@ export function isConnected() {
   return connected;
 }
 
+// 첫 접속이 실패했을 때 랭킹 탭의 "다시 연결" 버튼이 부른다. 예전엔 새로고침 말고는 방법이 없었다.
+let reconnectInFlight: Promise<boolean> | null = null;
+export function reconnect(): Promise<boolean> {
+  if (connected) return Promise.resolve(true);
+  if (reconnectInFlight) return reconnectInFlight;
+  reconnectInFlight = (async () => {
+    try {
+      server = server ?? GameServer.getInstance();
+      connected = await server.connect();
+      if (connected) {
+        nickname = ((await server.remoteFunction('getMyNickname')) as string) || null;
+        updateNicknameUI();
+        if (!vxShopReady) initVxShop();
+        void flushPendingStats();
+      }
+    } catch {
+      connected = false;
+    } finally {
+      reconnectInFlight = null;
+    }
+    return connected;
+  })();
+  return reconnectInFlight;
+}
+
 export function getNickname() {
   return nickname;
 }
 
 export async function setNickname(value: string) {
+  const trimmed = value.trim();
+  if (trimmed.length < 1 || trimmed.length > 15) return t('settings.nicknameLength');
   if (!server || !connected) return t('ranking.serverNotConnected');
   try {
-    await server.remoteFunction('setNickname', [value.trim()]);
-    nickname = value.trim();
+    // 서버가 다듬은 이름(앞뒤 공백 제거)을 그대로 쓴다. 서버가 랭킹 행 이름도 함께 바꾼다.
+    nickname = ((await server.remoteFunction('setNickname', [trimmed])) as string) || trimmed;
+    rankingCache = null;
     updateNicknameUI();
     // 닉네임이 없어서 서버가 거절했던 점수가 남아 있으면 지금 바로 올린다.
     if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     await flushPendingStats();
     return null;
   } catch (e: any) {
-    return e?.message || t('settings.nicknameFail');
+    // 서버의 영문 오류 문구를 그대로 보여주지 않고 현재 언어로 바꾼다.
+    return /between 1 and/i.test(String(e?.message ?? '')) ? t('settings.nicknameLength') : t('settings.nicknameError');
   }
 }
 
@@ -124,6 +153,10 @@ export async function resetAllData(): Promise<string | null> {
     if (cloudSaveTimer) { clearTimeout(cloudSaveTimer); cloudSaveTimer = null; }
     await server.remoteFunction('resetAllData');
     nickname = null;
+    // 지운 계정의 순위·대기 중인 점수가 다시 보이거나 올라가지 않게 비운다.
+    rankingCache = null;
+    hasPendingStats = false;
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
     updateNicknameUI();
     return null;
   } catch (e: any) {
@@ -163,8 +196,7 @@ export async function loadCloudSave(): Promise<Record<string, unknown> | null> {
   }
 }
 
-// 호출부(main.ts)가 레벨이 바뀔 때만 부르므로 스로틀 없이 바로 보낸다.
-// 레벨업은 오브젝트 100개당 1회라 호출 빈도가 낮고, 즉시 보내야 랭킹이 곧바로 갱신된다.
+// 호출부(main.ts)가 레벨업 때와, 경험치만 바뀌었을 때는 30초에 한 번만 부른다(reportScoreToPlatform).
 export async function syncStats(level: number, exp: number) {
   // 미연결이어도 버리지 않고 대기열에 넣는다 — 접속이 끝나면 initRanking()이 흘려보낸다.
   pendingLevel = level;
@@ -208,9 +240,11 @@ async function flushPendingStats() {
 // 로비에서 미리 받아두고, 탭을 열면 캐시를 즉시 그린다(로딩 표시 없음).
 // 그린 뒤 백그라운드로 다시 받아 조용히 최신값으로 바꾼다(stale-while-revalidate).
 interface RankingSnapshot {
-  top: any[];
-  mine: { entry: any | null; rank: number };
+  top: PublicRankingEntry[];
+  mine: { entry: any | null; rank: number; rankIsLowerBound?: boolean };
 }
+// 서버가 공개 목록에서 계정 ID를 빼고 내 행인지만 isMe로 알려준다.
+interface PublicRankingEntry { nickname: string; level: number; exp: number; score: number; isMe: boolean }
 let rankingCache: RankingSnapshot | null = null;
 let rankingFetchInFlight: Promise<RankingSnapshot | null> | null = null;
 
@@ -226,9 +260,9 @@ async function fetchRankings(): Promise<RankingSnapshot | null> {
         server!.remoteFunction('getTopRankings'),
         server!.remoteFunction('getMyRank'),
       ]);
-      const top = topResult.status === 'fulfilled' ? (topResult.value as any[]) : null;
+      const top = topResult.status === 'fulfilled' ? (topResult.value as PublicRankingEntry[]) : null;
       const mine = mineResult.status === 'fulfilled'
-        ? (mineResult.value as { entry: any | null; rank: number })
+        ? (mineResult.value as RankingSnapshot['mine'])
         : { entry: null, rank: -1 };
       // 상위 목록마저 못 받았으면 캐시를 건드리지 않고 실패로 처리한다.
       if (!top) return null;
@@ -262,24 +296,31 @@ function renderRankings(snapshot: RankingSnapshot) {
 
   const { top: topRanks, mine: myRank } = snapshot;
 
+  // 순위 = 나보다 점수가 높은 사람 수 + 1(동점은 같은 순위). 서버 getMyRank와 같은 규칙이라
+  // 목록의 내 순위와 "내 순위" 칸이 어긋나지 않는다. 목록은 점수 내림차순이라 앞사람과 같으면 순위를 잇는다.
+  const ranks: number[] = [];
+  topRanks.forEach((row, i) => {
+    ranks.push(i > 0 && row.score === topRanks[i - 1].score ? ranks[i - 1] : i + 1);
+  });
+
   // getMyRank가 실패했더라도 상위 목록 안에 내가 있으면 거기서 순위를 읽어 채운다.
-  const myAccount = server?.account;
-  const fallbackIndex = myAccount ? topRanks.findIndex((e) => e.account === myAccount) : -1;
+  const fallbackIndex = topRanks.findIndex((e) => e.isMe);
   const entry = myRank.entry ?? (fallbackIndex >= 0 ? topRanks[fallbackIndex] : null);
-  const rank = myRank.entry ? myRank.rank : fallbackIndex + 1;
+  const rank = myRank.entry ? myRank.rank : ranks[fallbackIndex];
+  const rankLabel = myRank.entry && myRank.rankIsLowerBound ? t('ranking.outsideTop') : `#${rank}`;
 
   myRankEl.textContent = entry
-    ? `#${rank} · Lv.${entry.level} · ${Number(entry.exp).toLocaleString()}/100 XP`
+    ? `${rankLabel} · Lv.${entry.level} · ${Number(entry.exp).toLocaleString()}/100 XP`
     : '-';
 
   listEl.innerHTML = topRanks
     .map(
       (entry, i) =>
-        `<article class="ranking-row${entry.account === server?.account ? ' me' : ''}">
-            <span class="ranking-rank">#${i + 1}</span>
+        `<article class="ranking-row${entry.isMe ? ' me' : ''}">
+            <span class="ranking-rank${ranks[i] <= 3 ? ` medal-${ranks[i]}` : ''}">#${ranks[i]}</span>
             <div>
               <h3>${escapeHTML(entry.nickname)}</h3>
-              <p>Lv.${entry.level} · ${entry.exp.toLocaleString()}/100 XP</p>
+              <p>Lv.${Number(entry.level)} · ${Number(entry.exp).toLocaleString()}/100 XP</p>
             </div>
           </article>`,
     )
@@ -304,7 +345,17 @@ export async function loadRankings() {
 
   if (!server || !connected) {
     loadingEl.classList.remove('hidden');
-    loadingEl.textContent = t('ranking.noConnection');
+    loadingEl.textContent = `${t('ranking.noConnection')} `;
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.className = 'settings-btn ranking-retry';
+    retry.textContent = t('ranking.retry');
+    retry.addEventListener('click', async () => {
+      retry.disabled = true;
+      if (await reconnect()) void loadRankings();
+      else retry.disabled = false;
+    });
+    loadingEl.append(retry);
     return;
   }
 
