@@ -3260,6 +3260,11 @@ if (import.meta.env.DEV) {
     enterRegion: (id: RegionId) => { unlockedRegion = Math.max(unlockedRegion, id) as RegionId; enterRegion(id); },
     look: (x: number, z: number, lookYaw: number, lookPitch = -0.05) => { camera.position.set(x, standingHeight, z); yaw = lookYaw; pitch = lookPitch; },
     start: () => { assetsReady = true; startGame(); },
+    // 녹화·자동 점검용: 포인터락 없이 청소 버튼을 누른 상태로 만들고, 도구를 바로 쥔다.
+    clean: (on: boolean) => (on ? startCleaning() : stopCleaning()),
+    equip: (id: ToolId) => equipTool(id),
+    setView: (lookYaw: number, lookPitch: number) => { yaw = lookYaw; pitch = lookPitch; },
+    targets: () => cleanables.filter((o) => !o.userData.cleaned).map((o) => [o.position.x, o.position.z, o.userData.kind] as const),
     remaining: () => cleanables.filter((o) => !o.userData.cleaned).length,
     clearAll: () => cleanables.filter((o) => !o.userData.cleaned).forEach(removeObject),
     state: () => ({ region: currentRegionId, unlockedRegion, coins: Math.floor(coins), gems, missionProgress, bestCombo: stats.bestCombo }),
