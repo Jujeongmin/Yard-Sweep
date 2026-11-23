@@ -22,6 +22,7 @@ import { getLocale, setLocale, t, isLocale, type Locale } from './i18n';
 import { initRanking, isConnected, syncStats, loadRankings, prefetchRankings, getNickname, setNickname, resetAllData, scheduleCloudSave, flushCloudSave, loadCloudSave, buyItem, getItem, refresh, onClose, fetchVxServerState } from './ranking';
 import { showRewardAd, isAdBusy } from './ads';
 import { claimAdFreeGemReward } from './ranking';
+import toolModelFitData from './toolModelFit.json';
 import { buildBeachWorld, buildParkWorld, buildYardSurroundings, createSkyDome, type Circle, type RegionWorld } from './scenery';
 import './style.css';
 
@@ -1135,6 +1136,7 @@ const metalSickleTool = buildSickle(0xd7dde0, 0x55483a, 0.85);
 function builtinToolFor(toolId: ToolId): THREE.Group {
   switch (toolId) {
     case 'basicBroom': return basicBroomTool;
+    case 'wideBroom': return basicBroomTool;
     case 'vacuum': return vacuumTool;
     case 'copperSickle': return copperSickleTool;
     case 'metalSickle': return metalSickleTool;
@@ -1163,6 +1165,135 @@ function loadModelScene(path: string) {
   }
   return pending;
 }
+// Yardsweep-*.glb 도구 모델(Tripo image-to-3D)은 원화 각도(비스듬한 3/4 뷰)대로 기울어져 나온다.
+// 그래서 정점 분포의 주축(PCA)으로 모든 도구를 같은 기준 자세로 먼저 맞춘다(canonicalToolBasis):
+//   가장 긴 축 = Y(손잡이 끝 +Y, 작업부 −Y), 두 번째로 넓은 축 = X, 가장 얇은 축 = Z.
+//   작업부는 축 양끝 중 단면이 더 넓게 퍼진 쪽(솔·날·곡괭이 머리)으로 자동 판정한다. 틀리면 flip.
+// 그다음 yaw(모델 자체 Y회전), length(세로 길이)로 다듬고 손잡이 끝을 원점에 둔 뒤,
+// rx/ry/rz(라디안)·px/py/pz로 손에 쥔 자세를 정한다. 원점 = toolAnchor = 손 위치라 휘두르기 회전 중심도 손이 된다.
+// 값은 개발 서버의 http://localhost:5173/?tooltune 패널(toolTuner.ts)에서 맞추고 "저장"을 누른다.
+export interface ToolModelFit {
+  flip: boolean; yaw: number; length: number;
+  rx: number; ry: number; rz: number; px: number; py: number; pz: number;
+}
+// 자세값 데이터는 toolModelFit.json. ?tooltune 패널의 저장 버튼이 이 파일을 직접 덮어쓴다(vite.config.ts 플러그인).
+const toolModelFit = toolModelFitData as Record<ToolId, ToolModelFit>;
+
+// 3x3 대칭 행렬의 최대 고유벡터(거듭제곱법). 도구 메시는 축 길이 차이가 커서 수십 번이면 수렴한다.
+function principalAxis(c: number[][], skip?: THREE.Vector3) {
+  const v = new THREE.Vector3(0.577, 0.577, 0.577);
+  if (skip) v.addScaledVector(skip, -v.dot(skip)).normalize();
+  for (let i = 0; i < 64; i++) {
+    const next = new THREE.Vector3(
+      c[0][0] * v.x + c[0][1] * v.y + c[0][2] * v.z,
+      c[1][0] * v.x + c[1][1] * v.y + c[1][2] * v.z,
+      c[2][0] * v.x + c[2][1] * v.y + c[2][2] * v.z,
+    );
+    if (skip) next.addScaledVector(skip, -next.dot(skip));
+    if (next.lengthSq() < 1e-12) break;
+    v.copy(next.normalize());
+  }
+  return v;
+}
+// 소스 GLB마다 한 번만 계산해서 캐시한다(정점 수천 개 샘플).
+const toolBasisCache = new WeakMap<THREE.Object3D, THREE.Quaternion>();
+function canonicalToolBasis(source: THREE.Object3D) {
+  const cached = toolBasisCache.get(source);
+  if (cached) return cached;
+  source.updateMatrixWorld(true);
+  const points: THREE.Vector3[] = [];
+  source.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) return;
+    const position = child.geometry.getAttribute('position');
+    const stride = Math.max(1, Math.floor(position.count / 4000));
+    for (let i = 0; i < position.count; i += stride) {
+      points.push(new THREE.Vector3().fromBufferAttribute(position, i).applyMatrix4(child.matrixWorld));
+    }
+  });
+  const mean = new THREE.Vector3();
+  for (const p of points) mean.add(p);
+  mean.divideScalar(Math.max(points.length, 1));
+  const c = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  for (const p of points) {
+    const d = [p.x - mean.x, p.y - mean.y, p.z - mean.z];
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) c[r][k] += d[r] * d[k];
+  }
+  // 고유축 3개를 구한 뒤, 분산(정점 밀도에 끌림: 빽빽한 빗자루 솔) 대신 실제 길이(투영 범위)로 순서를 정한다.
+  const e1 = principalAxis(c);
+  const e2 = principalAxis(c, e1);
+  const axes = [e1, e2, new THREE.Vector3().crossVectors(e1, e2).normalize()];
+  const extentOf = (axis: THREE.Vector3) => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const p of points) {
+      const t = axis.dot(p);
+      if (t < lo) lo = t;
+      if (t > hi) hi = t;
+    }
+    return hi - lo;
+  };
+  const sorted = axes.map((axis) => ({ axis, extent: extentOf(axis) })).sort((a, b) => b.extent - a.extent);
+  const ay = sorted[0].axis.clone();
+  const ax = sorted[1].axis.clone();
+  // 축 양끝 25% 구간에서 축에 수직인 퍼짐을 비교: 더 넓은 쪽이 작업부(−Y로 보낸다).
+  const along = points.map((p) => new THREE.Vector3().subVectors(p, mean).dot(ay));
+  const min = Math.min(...along);
+  const max = Math.max(...along);
+  const spread = (lo: number, hi: number) => {
+    let sum = 0;
+    let n = 0;
+    const offset = new THREE.Vector3();
+    points.forEach((p, i) => {
+      if (along[i] < lo || along[i] > hi) return;
+      offset.subVectors(p, mean).addScaledVector(ay, -along[i]);
+      sum += offset.length();
+      n++;
+    });
+    return n ? sum / n : 0;
+  };
+  const quarter = (max - min) * 0.25;
+  if (spread(max - quarter, max) > spread(min, min + quarter)) ay.negate();
+  // 작업부의 무게중심이 −X 쪽으로 오게(낫 날이 코드 도구처럼 왼쪽으로 휘게) X 부호를 정한다.
+  // ay를 뒤집었을 수 있으니 투영을 다시 구해서, −Y 끝 25% 구간을 작업부로 본다.
+  const headCenter = new THREE.Vector3();
+  let headCount = 0;
+  const projected = points.map((p) => new THREE.Vector3().subVectors(p, mean).dot(ay));
+  const headEnd = Math.min(...projected);
+  const headSpan = (Math.max(...projected) - headEnd) * 0.25;
+  points.forEach((p, i) => {
+    if (projected[i] <= headEnd + headSpan) { headCenter.add(p); headCount++; }
+  });
+  if (headCount && headCenter.divideScalar(headCount).sub(mean).dot(ax) > 0) ax.negate();
+  const az = new THREE.Vector3().crossVectors(ax, ay).normalize();
+  const basis = new THREE.Matrix4().makeBasis(ax, ay, az).transpose();
+  const quaternion = new THREE.Quaternion().setFromRotationMatrix(basis);
+  toolBasisCache.set(source, quaternion);
+  return quaternion;
+}
+
+// clone(true)는 geometry/material을 캐시 원본과 공유한다. 여기서 dispose하지 않는다.
+function placeToolModel(toolId: ToolId, source: THREE.Object3D) {
+  const fit = toolModelFit[toolId];
+  const model = source.clone(true);
+  model.quaternion.copy(canonicalToolBasis(source));
+  const oriented = new THREE.Group();
+  oriented.add(model);
+  oriented.rotation.set(fit.flip ? Math.PI : 0, fit.yaw, 0);
+  const bounds = new THREE.Box3().setFromObject(oriented);
+  const center = bounds.getCenter(new THREE.Vector3());
+  const scale = fit.length / Math.max(bounds.max.y - bounds.min.y, 0.001);
+  oriented.scale.setScalar(scale);
+  oriented.position.set(-center.x * scale, -bounds.max.y * scale, -center.z * scale);
+  model.traverse((child) => {
+    if (child instanceof THREE.Mesh) child.castShadow = true;
+  });
+  const holder = new THREE.Group();
+  holder.add(oriented);
+  holder.rotation.set(fit.rx, fit.ry, fit.rz);
+  holder.position.set(fit.px, fit.py, fit.pz);
+  return holder;
+}
+
 let modelRequest = 0;
 function showToolModel(toolId: ToolId) {
   const request = ++modelRequest;
@@ -1173,49 +1304,19 @@ function showToolModel(toolId: ToolId) {
     toolAnchor.add(builtinToolFor(toolId));
     return;
   }
-  // Tools that still load a GLTF model instead of a code-built shape. Tweak x/y/z/roll per tool here.
-  const gltfToolOffsets: Partial<Record<ToolId, { x: number; y: number; z: number; roll: number; yaw?: number }>> = {
-    neonPickaxe: { x: -0.7, y: 0.2, z: 0.5, roll: 2.85 , yaw: -Math.PI/1.8},
-    neonSickle: { x: -0.1, y: -0.1, z: 0, roll: -2 , yaw: Math.PI/2.5},
-    vacuum: { x: -0.5, y: 0.2, z: -1, roll: 0, yaw: Math.PI },
-  };
   void loadModelScene(modelPath).then((source) => {
     if (request !== modelRequest) return;
-    const model = source.clone(true);
-    const bounds = new THREE.Box3().setFromObject(model);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    const scale = 1.35 / Math.max(size.x, size.y, size.z, 0.001);
-    model.scale.setScalar(scale);
-    model.position.copy(center.multiplyScalar(-scale));
-    const offset = gltfToolOffsets[toolId] ?? { x: 0, y: 0, z: 0, roll: 0 };
-    model.position.x += offset.x;
-    model.position.y += offset.y;
-    model.position.z += offset.z;
-    model.rotation.set(Math.PI / 2, offset.yaw ?? 0, offset.roll);
-    model.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return;
-      child.castShadow = true;
-      if (toolId !== 'vacuum') return;
-      const tintMaterial = (material: THREE.Material) => {
-        const tinted = material.clone();
-        if (tinted instanceof THREE.MeshStandardMaterial) {
-          tinted.color.multiply(new THREE.Color(0xff3030));
-          tinted.needsUpdate = true;
-        }
-        return tinted;
-      };
-      child.material = Array.isArray(child.material)
-        ? child.material.map(tintMaterial)
-        : tintMaterial(child.material);
-    });
     toolAnchor.clear();
-    toolAnchor.add(model);
+    toolAnchor.add(placeToolModel(toolId, source));
   }).catch(() => {
     if (request !== modelRequest) return;
     toolAnchor.clear();
     toolAnchor.add(builtinToolFor(toolId));
   });
+}
+// 개발 서버에서만: http://localhost:5173/?tooltune 로 도구 자세 튜너 패널을 연다.
+if (import.meta.env.DEV && new URLSearchParams(location.search).has('tooltune')) {
+  void import('./toolTuner').then(({ mountToolTuner }) => mountToolTuner(toolModelFit, showToolModel));
 }
 
 let yaw = 0;
@@ -1500,14 +1601,14 @@ const toolUi: Record<ToolId, { size: number }> = {
 };
 // HUD 인벤토리 슬롯에 표시할 도구 아이콘 이미지
 const toolImage: Record<ToolId, string> = {
-  basicBroom: '/assets/Broom-2.png',
-  wideBroom: '/assets/Broom-1.png',
-  vacuum: '/assets/VacuumImg.png',
-  copperSickle: '/assets/Sickle-1.png',
-  metalSickle: '/assets/Sickle-0.png',
-  pickaxe: '/assets/PickImg.png',
-  neonSickle: '/assets/SickleSkinImg.png',
-  neonPickaxe: '/assets/PickSkinImg.png',
+  basicBroom: '/assets/Yardsweep-BasicBroom-Icon.png',
+  wideBroom: '/assets/Yardsweep-WideBroom-Icon.png',
+  vacuum: '/assets/Yardsweep-Vacuum-Icon.png',
+  copperSickle: '/assets/Yardsweep-CopperSickle-Icon.png',
+  metalSickle: '/assets/Yardsweep-MetalSickle-Icon.png',
+  pickaxe: '/assets/Yardsweep-Pickaxe-Icon.png',
+  neonSickle: '/assets/Yardsweep-NeonSickle-Icon.png',
+  neonPickaxe: '/assets/Yardsweep-NeonPickaxe-Icon.png',
 };
 
 const coinsEl = document.querySelector('#coins')!;

@@ -1,0 +1,9 @@
+# Managed by verse8-mcp (verse8_attach). Edit user entries below the marker freely.
+preview.log
+mcp.log
+mcp.log.*
+mcp.log.link
+*.env.tmp-*
+.env.tmp-*
+
+# --- user entries below ---

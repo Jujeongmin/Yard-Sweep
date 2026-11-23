@@ -197,6 +197,7 @@
 - **미사용 에셋 제거**: 도구를 GLB 로드에서 코드 생성 방식으로 바꾸면서 남은 잔재(`Pick.glb`, `Sickle_0/1.glb`, `Broom_2.glb`, `vacuum_cleaner.glb`, `Vacuum.png`)와 점프 삭제로 쓰이지 않게 된 `jump-land-sound.mp3`를 지웠다. 약 3MB.
 - **GLB 압축** (`gltf-transform optimize`): `Vacuum` 5.8MB→1.1MB, `PickSkin` 6.5MB→2.0MB(텍스처 1024²→512²), `RobotVacuum` 268KB→132KB. 모델은 `showToolModel()`에서 `1.35 / max(size)`로 정규화되므로 절대 크기는 무관하고 비율만 유지되면 된다. 교체 전 원본과 정규화 바운딩박스를 비교해 오차가 0.00005 이하임을 확인했다.
 - **`SickleSkin.glb`은 압축하지 않았다.** 같은 파이프라인을 태우면 정규화 바운딩박스가 X −5.9%, Z −20% 달라진다(원본에 있던 빈 노드가 `prune` 단계에서 사라지면서 박스가 줄어드는 것으로 보인다. `--no-simplify`, 양자화 해제 모두 해봤지만 동일). 지오메트리 자체는 멀쩡하겠지만 네온 낫의 `gltfToolOffsets` 값이 기존 바운딩박스 기준으로 손수 맞춰진 것이라, 교체하면 화면상 위치가 틀어진다. 500KB 아끼자고 프리미엄 아이템 외형을 흔들 이유가 없어 원본을 유지했다.
+  - (2026-11-23 갱신) `Vacuum`, `PickSkin`, `SickleSkin`과 도구 아이콘 PNG는 모두 `Yardsweep-*` 도구 모델로 교체되면서 삭제됐다. 아래 "도구 3D 모델" 참고.
 - **BGM 지연 로딩**: 3곡 합계 9.6MB를 로딩 화면에서 전부 `canplaythrough`까지 기다리고 있었다. `preload='none'`으로 두고 현재 지역 곡 1개만 미리 받으며, 나머지는 `playRegionBgm()`이 그 지역에 들어갈 때 받는다.
 - **번들 코드 분할**: three.js(gzip 153KB)를 게임 코드(gzip 61KB)와 별도 청크로 뺐다. 게임 로직만 고쳐 배포해도 유저는 three 청크를 캐시에서 재사용한다.
 
@@ -268,3 +269,10 @@
 - VX 상점 실결제 연동(보석 팩, 광고 제거) — 현재는 클릭 시 "출시 후 이용 가능" 안내만 뜨는 스텁
 - 지역완료 2배 보상의 실제 광고 SDK 연동 — 현재는 1.2초 대기 후 지급되는 시뮬레이션
 - 잔디/돌 카테고리가 시작부터 완전히 빈 칸이라 초반 진입 장벽이 큰 편 — 밸런스 재검토 필요
+
+## 도구 3D 모델 (2026-11-23)
+
+- 도구 8종은 모두 `game/public/assets/Yardsweep-<Tool>.glb`(손에 든 모델)과 `Yardsweep-<Tool>-Icon.png`(HUD·상점 아이콘, 256px)를 쓴다.
+- 제작: Verse8 `image_asset_generate`로 로우폴리 카툰 원화 → `static_3d_generate`(Tripo h3.1 image-to-3d) → 텍스처를 baseColor 512px JPEG 1장만 남기고 metal 0 / roughness 0.75로 고정. Tripo의 metal/roughness·normal 텍스처는 노이즈라 버렸다. 원본은 하나에 2048² 3장(GPU 약 64MB)이었다.
+- Tripo 결과는 원화 각도대로 기울어져 나온다. `canonicalToolBasis()`가 정점 주축으로 긴 축=Y(작업부 −Y), 넓은 축=X로 맞춘다. 작업부 자동 판정이 틀리면 `flip`.
+- 손에 쥔 자세값은 `game/src/toolModelFit.json`. 개발 서버에서 `http://localhost:5173/?tooltune`을 열어 슬라이더로 맞추고 "저장"을 누르면 이 파일에 바로 써진다(`vite.config.ts`의 `tooltune-save` 플러그인, 개발 서버 전용).

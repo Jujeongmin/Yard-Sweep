@@ -159,8 +159,11 @@ button { font: inherit; }
   position: absolute; top: clamp(-8px,-1vw,-9px); left: clamp(-8px,-1vw,-9px);
   width: clamp(20px,3vw,24px); height: clamp(20px,3vw,24px);
   border-radius: 50%; background: #142c3b; line-height: clamp(20px,3vw,24px);
-  font-size: var(--fs-xs); text-align: center;
+  font-family: Jua, sans-serif; font-size: var(--fs-sm); text-align: center;
+  border: 2px solid #ffffff; box-sizing: border-box;
 }
+/* 폼 요소·kbd는 브라우저 기본(시스템/monospace) 폰트를 쓰므로 게임 폰트를 상속시킨다. */
+button, input, select, textarea, kbd { font-family: inherit; }
 
 /* ── Header buttons ── */
 .round-button {

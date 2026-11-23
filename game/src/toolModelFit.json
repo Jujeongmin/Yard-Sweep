@@ -1,0 +1,10 @@
+{
+  "basicBroom": {"flip":false,"yaw":0,"length":1.7,"rx":1.528,"ry":-1.422,"rz":-0.272,"px":-0.17,"py":-0.56,"pz":0.71},
+  "wideBroom": {"flip":true,"yaw":-0.052,"length":1.8,"rx":1.638,"ry":0.188,"rz":-0.442,"px":0.02,"py":-0.37,"pz":1.06},
+  "vacuum": {"flip":false,"yaw":0,"length":1.7,"rx":1.588,"ry":0.408,"rz":0.028,"px":-0.5,"py":-0.49,"pz":0.99},
+  "copperSickle": {"flip":false,"yaw":0,"length":0.9,"rx":2.348,"ry":1.338,"rz":-0.242,"px":-0.42,"py":-0.68,"pz":0.02},
+  "metalSickle": {"flip":false,"yaw":0,"length":1,"rx":2.318,"ry":1.34,"rz":-0.242,"px":-0.42,"py":-0.68,"pz":0.02},
+  "pickaxe": {"flip":false,"yaw":0,"length":1,"rx":2.298,"ry":1.528,"rz":0.358,"px":-0.54,"py":-0.87,"pz":0.38},
+  "neonSickle": {"flip":false,"yaw":3.118,"length":1.05,"rx":2.158,"ry":-1.752,"rz":-0.272,"px":-0.45,"py":-0.68,"pz":-0.05},
+  "neonPickaxe": {"flip":false,"yaw":0,"length":1.05,"rx":2.108,"ry":1.338,"rz":0.628,"px":-0.5,"py":-0.77,"pz":0.12}
+}

@@ -27,14 +27,14 @@ export interface ObjectDefinition {
 
 // `name`/`label` fields below are i18n keys (see src/i18n.ts), not display text — resolve with t().
 export const tools: Record<ToolId, ToolDefinition> = {
-  basicBroom: { id: 'basicBroom', slot: 1, category: 1, name: 'tool.basicBroom', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'] },
-  wideBroom: { id: 'wideBroom', slot: 2, category: 1, name: 'tool.wideBroom', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'] },
-  vacuum: { id: 'vacuum', slot: 3, category: 1, name: 'tool.vacuum', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'], model: '/assets/Vacuum.glb' },
-  copperSickle: { id: 'copperSickle', slot: 4, category: 2, name: 'tool.copperSickle', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'] },
-  metalSickle: { id: 'metalSickle', slot: 5, category: 2, name: 'tool.metalSickle', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'] },
-  pickaxe: { id: 'pickaxe', slot: 6, category: 3, name: 'tool.pickaxe', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest', 'boulder'] },
-  neonSickle: { id: 'neonSickle', slot: 7, category: 2, name: 'tool.neonSickle', radius: 3.45, speed: 2.15, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'], model: '/assets/SickleSkin.glb' },
-  neonPickaxe: { id: 'neonPickaxe', slot: 8, category: 3, name: 'tool.neonPickaxe', radius: 2.15, speed: 1.55, canMoveWhileCleaning: true, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest', 'boulder'], model: '/assets/PickSkin.glb' },
+  basicBroom: { id: 'basicBroom', slot: 1, category: 1, name: 'tool.basicBroom', radius: 2.15, speed: 1, canMoveWhileCleaning: false, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'], model: '/assets/Yardsweep-BasicBroom.glb' },
+  wideBroom: { id: 'wideBroom', slot: 2, category: 1, name: 'tool.wideBroom', radius: 3.1, speed: 1.15, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'], model: '/assets/Yardsweep-WideBroom.glb' },
+  vacuum: { id: 'vacuum', slot: 3, category: 1, name: 'tool.vacuum', radius: 2.65, speed: 2.1, canMoveWhileCleaning: true, validTargets: ['leaf', 'can', 'goldCan', 'goldChest', 'gemChest', 'trashBag', 'bottle'], model: '/assets/Yardsweep-Vacuum.glb' },
+  copperSickle: { id: 'copperSickle', slot: 4, category: 2, name: 'tool.copperSickle', radius: 2.35, speed: 1.25, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'], model: '/assets/Yardsweep-CopperSickle.glb' },
+  metalSickle: { id: 'metalSickle', slot: 5, category: 2, name: 'tool.metalSickle', radius: 3.15, speed: 1.8, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'], model: '/assets/Yardsweep-MetalSickle.glb' },
+  pickaxe: { id: 'pickaxe', slot: 6, category: 3, name: 'tool.pickaxe', radius: 1.65, speed: 1, canMoveWhileCleaning: false, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest', 'boulder'], model: '/assets/Yardsweep-Pickaxe.glb' },
+  neonSickle: { id: 'neonSickle', slot: 7, category: 2, name: 'tool.neonSickle', radius: 3.45, speed: 2.15, canMoveWhileCleaning: true, validTargets: ['grass', 'goldChest', 'gemChest', 'bush', 'seaweed'], model: '/assets/Yardsweep-NeonSickle.glb' },
+  neonPickaxe: { id: 'neonPickaxe', slot: 8, category: 3, name: 'tool.neonPickaxe', radius: 2.15, speed: 1.55, canMoveWhileCleaning: true, validTargets: ['stone', 'goldStone', 'goldChest', 'gemChest', 'boulder'], model: '/assets/Yardsweep-NeonPickaxe.glb' },
 };
 
 export interface CategoryDefinition {
